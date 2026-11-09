@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suuri Auton Varastus Peli</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            color: #fff;
+            font-family: sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        #ui {
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            width: 100%;
+        }
+        #game-container {
+            position: relative;
+        }
+        #gameCanvas {
+            background-color: #555; /* Asfaltti */
+            border: 4px solid #333;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            display: block;
+        }
+        /* Pause-valikko */
+        #pauseOverlay {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 800px;
+            height: 500px;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            flex-direction: row; /* Jaetaan kahteen osaan: valikko ja kartta */
+            align-items: center;
+            justify-content: space-around;
+            z-index: 100;
+            border-radius: 4px;
+            padding: 40px;
+        }
+        .menu-side {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #pauseOverlay h2 {
+            font-family: 'Impact', sans-serif;
+            font-size: 42px;
+            color: #ff0055;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 25px;
+            text-shadow: 3px 3px 0px #00f0ff;
+        }
+        .pause-btn {
+            background: linear-gradient(135deg, #111, #222);
+            color: white;
+            border: 2px solid #555;
+            padding: 12px 35px;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            margin: 8px;
+            width: 250px;
+            text-align: center;
+            text-decoration: none;
+            box-shadow: 3px 3px 0px #000;
+            transition: all 0.2s;
+        }
+        .pause-btn:hover {
+            background: #fff;
+            color: #000;
+            transform: scale(1.05);
+            box-shadow: -4px 4px 0px #ff0055;
+        }
+        /* Minikartan tyylit */
+        .map-side {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .map-title {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #00f0ff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .grid-3x3 {
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(3, 60px);
+            gap: 5px;
+            background: #333;
+            padding: 8px;
+            border: 3px solid #fff;
+        }
+        .grid-cell {
+            background-color: #555;
+            border: 1px solid #777;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #aaa;
+            font-weight: bold;
+        }
+        .grid-cell.active {
+            background-color: #ff0055;
+            color: white;
+            box-shadow: 0 0 10px #ff0055;
+            border-color: #fff;
+        }
+        .controls {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #aaa;
+            text-align: center;
+            line-height: 1.5;
+        }
+		.grid-cell {
+    background-color: #668b4b;
+    border: 1px solid #777;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: white;
+    font-weight: bold;
+}
+
+.grid-cell.active {
+    background-color: #ff0055;
+    color: white;
+    box-shadow: 0 0 10px #ff0055;
+    border-color: #fff;
+}
+    </style>
+</head>
+<body>
+
+    <div id="ui">Alue: <span id="grid-pos" style="color: #00f0ff;">(1, 1)</span> | Tila: <span id="status" style="color: #55ff55;">Kävelet</span> | <span id="action-prompt" style="color: #ffcc00;">Mene auton lähelle</span></div>
+    
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        
+        <!-- PAUSE VALIKKO JA MINIKARTTA -->
+        <div id="pauseOverlay">
+            <div class="menu-side">
+                <h2>Peli Pausella</h2>
+                <button class="pause-btn" onclick="togglePause()">Jatka peliä</button>
+                <a href="savp1.html" class="pause-btn">Lopeta peli</a>
+            </div>
+            
+            <div class="map-side">
+                <div class="map-title">Navigaattori</div>
+                <div class="grid-3x3" id="minimapGrid">
+                    <!-- Solut luodaan dynaamisesti JavaScriptillä -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <strong>Liikkuminen:</strong> Nuolinäppäimet tai WASD | 
+        <strong>Autoon / Ulos:</strong> Paina <span style="color:#fff; background:#444; padding:2px 6px; border-radius:3px;">E</span><br>
+        <strong>Pause-valikko & Kartta:</strong> Paina <span style="color:#fff; background:#444; padding:2px 6px; border-radius:3px;">P</span>
+    </div>
+
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const statusText = document.getElementById("status");
+const actionPrompt = document.getElementById("action-prompt");
+const pauseOverlay = document.getElementById("pauseOverlay");
+const gridPosText = document.getElementById("grid-pos");
+const minimapGrid = document.getElementById("minimapGrid");
+
+const W = canvas.width;
+const H = canvas.height;
+
+let isPaused = false;
+let currentGridX = 1;
+let currentGridY = 1;
+const keys = {};
+
+window.addEventListener("keydown", e => {
+    if (e.key.toLowerCase() !== "e" ||
+        isPaused || e.repeat) return;
+
+    if (!activeCar) {
+        let nearest = null;
+        let nearestDistance = 45;
+
+        for (const c of cars) {
+            if (c.gridX !== currentGridX ||
+                c.gridY !== currentGridY) continue;
+
+            const d = distance(player.x, player.y, c.x, c.y);
+
+            if (d < nearestDistance) {
+                nearest = c;
+                nearestDistance = d;
+            }
+        }
+
+        if (nearest) {
+            activeCar = nearest;
+activeCar.inCar = true;
+
+player.x = activeCar.x;
+player.y = activeCar.y;
+
+            statusText.innerText = "Ajat autoa";
+            statusText.style.color = activeCar.color;
+            actionPrompt.innerText = "Paina E poistuaksesi";
+        }
+    } else {
+        const c = activeCar;
+        const px = c.x + Math.sin(c.angle) * 38;
+        const py = c.y - Math.cos(c.angle) * 38;
+
+        if (!hitsBuilding(px, py, player.radius)) {
+            player.x = px;
+            player.y = py;
+            c.inCar = false;
+            activeCar = null;
+
+            statusText.innerText = "Kävelet";
+            statusText.style.color = "#55ff55";
+            actionPrompt.innerText = "Mene auton lähelle";
+        }
+    }
+});
+
+window.addEventListener("keyup", e => {
+    keys[e.key.toLowerCase()] = false;
+});
+
+
+window.addEventListener("keydown", e => {
+    const key = e.key.toLowerCase();
+
+    if (["w", "a", "s", "d", "arrowup",
+         "arrowdown", "arrowleft", "arrowright"].includes(key)
+        && !isPaused) {
+        keys[key] = true;
+    }
+});
+
+window.addEventListener("blur", clearKeys);
+
+function clearKeys() {
+    Object.keys(keys).forEach(k => keys[k] = false);
+}
+
+
+window.addEventListener("keydown", e => {
+    if (e.key.toLowerCase() === "p" && !e.repeat) {
+        togglePause();
+    }
+});
+
+
+function togglePause() {
+    isPaused = !isPaused;
+    pauseOverlay.style.display = isPaused ? "flex" : "none";
+
+    if (isPaused) {
+        clearKeys();
+        updateMinimap();
+    }
+}
+
+function updateMinimap() {
+    minimapGrid.innerHTML = "";
+
+    for (let y = 0; y < 3; y++) {
+        for (let x = 0; x < 3; x++) {
+            const cell = document.createElement("div");
+            cell.className = "grid-cell";
+            cell.innerText = `${x},${y}`;
+
+            if (x === currentGridX && y === currentGridY) {
+                cell.classList.add("active");
+                cell.innerText = "SINÄ";
+            }
+
+            minimapGrid.appendChild(cell);
+        }
+    }
+}
+
+const player = {
+    x: 150,
+    y: 250,
+    radius: 12,
+    speed: 3.5,
+    color: "#00a8ff"
+};
+
+
+const car = {
+    x: 400,
+    y: 250,
+    width: 50,
+    height: 25,
+    angle: 0,
+    speed: 0,
+    maxSpeed: 7,
+    backSpeed: -3,
+    accel: 0.15,
+    friction: 0.04,
+    steerSpeed: 0.045,
+    color: "#e84118",
+    inCar: false,
+    gridX: 1,
+    gridY: 1
+};
+
+const greenCar = {
+    ...car,
+    x: 250,
+    y: 350,
+    speed: 0,
+    gridX: 0,
+    gridY: 0,
+    color: "#2ecc71",
+    inCar: false
+};
+
+const blueCar = {
+    ...car,
+    x: 400,
+    y: 350,
+    speed: 0,
+    gridX: 2,
+    gridY: 2,
+    color: "#3498db",
+    inCar: false
+};
+
+const cars = [car, greenCar, blueCar];
+let activeCar = null;
+
+// Jokaisella ruudulla on oma tieverkko ja omat rakennukset.
+const maps = {};
+
+function randomFor(seed) {
+    let n = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+    return n - Math.floor(n);
+}
+
+function getMap(gx, gy) {
+    const id = `${gx},${gy}`;
+
+    if (maps[id]) return maps[id];
+
+    const seed = (gx + 1) * 91 + (gy + 1) * 173;
+    const roadType = Math.floor(randomFor(seed) * 5);
+
+    const map = {
+        roadType,
+        buildings: [],
+        grass: randomFor(seed + 4) > 0.5 ? "#668b4b" : "#718d50",
+        road: ["#55585b", "#4e5357", "#606064"][Math.floor(randomFor(seed + 5) * 3)]
+    };
+
+    // Erilaisia rakennusalueita tien molemmille puolille.
+    const lots = [
+        [25, 25, 100, 75],
+        [165, 25, 105, 75],
+        [310, 25, 105, 75],
+        [470, 25, 105, 75],
+        [25, 145, 100, 85],
+        [165, 145, 105, 85],
+        [310, 145, 105, 85],
+        [470, 145, 105, 85],
+        [25, 290, 100, 75],
+        [165, 290, 105, 75],
+        [310, 290, 105, 75],
+        [470, 290, 105, 75],
+        [25, 405, 100, 65],
+        [165, 405, 105, 65],
+        [310, 405, 105, 65],
+        [470, 405, 105, 65]
+    ];
+
+    const buildingColors = [
+        "#8b6652", "#a18b76", "#777e88",
+        "#bd9b72", "#8a8175", "#9b6f64",
+        "#77765c", "#b2a28b"
+    ];
+
+    for (let i = 0; i < lots.length; i++) {
+        const lot = lots[i];
+        const r = randomFor(seed + i * 13);
+
+        // Joihinkin tontteihin tulee piha tai pysäköintialue.
+        if (r < 0.18) continue;
+
+        const bw = lot[2] * (0.58 + randomFor(seed + i * 7) * 0.35);
+        const bh = lot[3] * (0.58 + randomFor(seed + i * 9) * 0.35);
+
+        const building = {
+            x: lot[0] + (lot[2] - bw) / 2,
+            y: lot[1] + (lot[3] - bh) / 2,
+            w: bw,
+            h: bh,
+            color: buildingColors[Math.floor(randomFor(seed + i * 17) * buildingColors.length)],
+            type: Math.floor(randomFor(seed + i * 21) * 3)
+        };
+
+        // Pidä rakennukset pois tien päältä.
+        if (!overlapsRoad(building, roadType)) {
+            map.buildings.push(building);
+        }
+    }
+
+    maps[id] = map;
+    return map;
+}
+
+function overlapsRoad(b, type) {
+    const margin = 12;
+    const x = b.x - margin;
+    const y = b.y - margin;
+    const w = b.w + margin * 2;
+    const h = b.h + margin * 2;
+
+    const horizontal = y < 295 && y + h > 205;
+    const vertical = x < 445 && x + w > 355;
+
+    if (type === 0) return horizontal;
+    if (type === 1) return vertical;
+    if (type === 2) return horizontal || vertical;
+    if (type === 3) {
+        return horizontal || (x < 250 && x + w > 180 && y < 500);
+    }
+
+    return horizontal || vertical;
+}
+
+function getActiveMap() {
+    return getMap(currentGridX, currentGridY);
+}
+
+function distance(x1, y1, x2, y2) {
+    return Math.hypot(x2 - x1, y2 - y1);
+}
+
+// Rakennuksen ja ympyrän törmäystarkistus.
+function circleHitsBuilding(x, y, radius, b) {
+    const cx = Math.max(b.x, Math.min(x, b.x + b.w));
+    const cy = Math.max(b.y, Math.min(y, b.y + b.h));
+    return distance(x, y, cx, cy) < radius;
+}
+
+function hitsBuilding(x, y, radius) {
+    return getActiveMap().buildings.some(
+        b => circleHitsBuilding(x, y, radius, b)
+    );
+}
+
+function movePerson(dx, dy) {
+    // Tarkista vaaka- ja pystysuunta erikseen, jotta
+    // pelaaja pystyy liukumaan rakennusten seinää pitkin.
+    if (!hitsBuilding(player.x + dx, player.y, player.radius)) {
+        player.x += dx;
+    }
+
+    if (!hitsBuilding(player.x, player.y + dy, player.radius)) {
+        player.y += dy;
+    }
+}
+
+function changeGrid(dx, dy, object) {
+    const nx = currentGridX + dx;
+    const ny = currentGridY + dy;
+
+    // 3x3-kartan ulkopuolelle ei pääse.
+    if (nx < 0 || nx > 2 || ny < 0 || ny > 2) {
+        if (object === player) {
+            player.x = Math.max(player.radius,
+                Math.min(W - player.radius, player.x));
+            player.y = Math.max(player.radius,
+                Math.min(H - player.radius, player.y));
+        } else {
+object.x = Math.max(object.width / 2,
+    Math.min(W - object.width / 2, object.x));
+object.y = Math.max(object.height / 2,
+    Math.min(H - object.height / 2, object.y));
+            object.speed = 0;
+        }
+        return false;
+    }
+
+    currentGridX = nx;
+    currentGridY = ny;
+	
+	if (object !== player) {
+    object.gridX = currentGridX;
+    object.gridY = currentGridY;
+}
+
+    // Siirrä auto ja pelaaja sisään vastakkaiselta reunalta.
+    if (dx === -1) object.x = W - 2;
+    if (dx === 1) object.x = 2;
+    if (dy === -1) object.y = H - 2;
+    if (dy === 1) object.y = 2;
+
+    // Estä syntyminen uuden ruudun rakennuksen sisään.
+    if (hitsBuilding(object.x, object.y,
+        object === player ? player.radius : 17)) {
+        if (dx !== 0) object.y = H / 2;
+        if (dy !== 0) object.x = W / 2;
+    }
+
+    gridPosText.innerText = `(${currentGridX}, ${currentGridY})`;
+    return true;
+}
+
+function handleEdges(object) {
+    if (object.x < 0) changeGrid(-1, 0, object);
+    else if (object.x > W) changeGrid(1, 0, object);
+
+    if (object.y < 0) changeGrid(0, -1, object);
+    else if (object.y > H) changeGrid(0, 1, object);
+}
+
+
+function update() {
+    gridPosText.innerText = `(${currentGridX}, ${currentGridY})`;
+
+    if (!activeCar) {
+        let dx = 0;
+        let dy = 0;
+
+        if (keys["w"] || keys["arrowup"]) dy -= player.speed;
+        if (keys["s"] || keys["arrowdown"]) dy += player.speed;
+        if (keys["a"] || keys["arrowleft"]) dx -= player.speed;
+        if (keys["d"] || keys["arrowright"]) dx += player.speed;
+
+        if (dx && dy) {
+            dx *= Math.SQRT1_2;
+            dy *= Math.SQRT1_2;
+        }
+
+        movePerson(dx, dy);
+        handleEdges(player);
+
+        const nearby = cars.some(c =>
+            c.gridX === currentGridX &&
+            c.gridY === currentGridY &&
+            distance(player.x, player.y, c.x, c.y) < 45
+        );
+
+        actionPrompt.innerText = nearby
+            ? "PAINA E MENNÄKSESI AUTOON!"
+            : "Mene auton lähelle";
+    } else {
+        const c = activeCar;
+
+        if (keys["w"] || keys["arrowup"]) {
+            c.speed = Math.min(c.maxSpeed, c.speed + c.accel);
+        } else if (keys["s"] || keys["arrowdown"]) {
+            c.speed = Math.max(c.backSpeed, c.speed - c.accel);
+        } else {
+            if (c.speed > 0) c.speed = Math.max(0, c.speed - c.friction);
+            if (c.speed < 0) c.speed = Math.min(0, c.speed + c.friction);
+        }
+
+        if (Math.abs(c.speed) > 0.05) {
+            const steer = c.speed > 0 ? 1 : -1;
+
+            if (keys["a"] || keys["arrowleft"]) {
+                c.angle -= c.steerSpeed * steer;
+            }
+
+            if (keys["d"] || keys["arrowright"]) {
+                c.angle += c.steerSpeed * steer;
+            }
+        }
+
+        const oldX = c.x;
+        const oldY = c.y;
+
+        c.x += Math.cos(c.angle) * c.speed;
+        c.y += Math.sin(c.angle) * c.speed;
+
+        if (hitsBuilding(c.x, c.y, 17)) {
+            c.x = oldX;
+            c.y = oldY;
+            c.speed *= -0.3;
+        } else {
+            handleEdges(c);
+        }
+
+        player.x = c.x;
+        player.y = c.y;
+    }
+}
+
+function drawRoad(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+
+    // Katkoviiva tien keskelle.
+    ctx.strokeStyle = "#e5dba1";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([16, 14]);
+    ctx.beginPath();
+
+    if (w > h) {
+        ctx.moveTo(x, y + h / 2);
+        ctx.lineTo(x + w, y + h / 2);
+    } else {
+        ctx.moveTo(x + w / 2, y);
+        ctx.lineTo(x + w / 2, y + h);
+    }
+
+    ctx.stroke();
+    ctx.setLineDash([]);
+}
+
+function drawMap() {
+    const map = getActiveMap();
+
+    ctx.fillStyle = map.grass;
+    ctx.fillRect(0, 0, W, H);
+
+    // Pihat ja viheralueiden pienet koristeet.
+    for (let i = 0; i < 32; i++) {
+        const x = randomFor((currentGridX + 1) * 1000 + i * 4) * W;
+        const y = randomFor((currentGridY + 1) * 2000 + i * 7) * H;
+
+        ctx.fillStyle = "rgba(30,70,30,0.18)";
+        ctx.beginPath();
+        ctx.arc(x, y, 3 + (i % 4), 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Erilaiset tien muodot eri ruuduissa.
+    if (map.roadType === 0) {
+        drawRoad(0, 205, W, 90, map.road);
+        drawRoad(175, 90, 70, 115, map.road);
+    } else if (map.roadType === 1) {
+        drawRoad(355, 0, 90, H, map.road);
+        drawRoad(445, 100, 150, 65, map.road);
+    } else if (map.roadType === 2) {
+        drawRoad(0, 205, W, 90, map.road);
+        drawRoad(355, 0, 90, H, map.road);
+    } else if (map.roadType === 3) {
+        drawRoad(0, 205, W, 90, map.road);
+        drawRoad(180, 205, 70, H - 205, map.road);
+    } else {
+        drawRoad(0, 205, W, 90, map.road);
+        drawRoad(355, 0, 90, H, map.road);
+        drawRoad(445, 80, 100, 65, map.road);
+        drawRoad(100, 295, 70, 110, map.road);
+    }
+
+    // Jalkakäytävät ja tien reunat.
+    ctx.strokeStyle = "#b0b0a1";
+    ctx.lineWidth = 3;
+
+    if ([0, 2, 3, 4].includes(map.roadType)) {
+        ctx.beginPath();
+        ctx.moveTo(0, 203);
+        ctx.lineTo(W, 203);
+        ctx.moveTo(0, 297);
+        ctx.lineTo(W, 297);
+        ctx.stroke();
+    }
+
+    if ([1, 2, 4].includes(map.roadType)) {
+        ctx.beginPath();
+        ctx.moveTo(353, 0);
+        ctx.lineTo(353, H);
+        ctx.moveTo(447, 0);
+        ctx.lineTo(447, H);
+        ctx.stroke();
+    }
+
+    // Rakennukset, ikkunat, ovet ja katot.
+    for (const b of map.buildings) {
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.fillRect(b.x + 6, b.y + 7, b.w, b.h);
+
+        ctx.fillStyle = "#d0c3a8";
+        ctx.fillRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6);
+
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+
+        // Katon yksityiskohdat.
+        ctx.fillStyle = "rgba(0,0,0,0.15)";
+        ctx.fillRect(b.x + 5, b.y + 5, b.w - 10, 5);
+
+        if (b.type === 0) {
+            ctx.fillStyle = "#b7d8e5";
+            for (let wx = b.x + 12; wx < b.x + b.w - 8; wx += 25) {
+                ctx.fillRect(wx, b.y + 15, 10, 12);
+                ctx.fillRect(wx, b.y + b.h - 28, 10, 12);
+            }
+        } else if (b.type === 1) {
+            ctx.fillStyle = "#4a3c32";
+            ctx.fillRect(b.x + b.w / 2 - 7, b.y + b.h - 22, 14, 22);
+
+            ctx.fillStyle = "#c8e7ed";
+            ctx.fillRect(b.x + 12, b.y + 15, 13, 12);
+            ctx.fillRect(b.x + b.w - 25, b.y + 15, 13, 12);
+        } else {
+            ctx.fillStyle = "#b9d8df";
+            ctx.fillRect(b.x + 12, b.y + 12, 16, 15);
+            ctx.fillRect(b.x + b.w - 29, b.y + 12, 16, 15);
+            ctx.fillStyle = "#56483b";
+            ctx.fillRect(b.x + b.w / 2 - 6, b.y + b.h - 22, 12, 22);
+        }
+    }
+
+    // Pysäköintialue tien vieressä joissakin ruuduissa.
+    if (map.roadType === 1 || map.roadType === 4) {
+        ctx.fillStyle = "#42464a";
+        ctx.fillRect(470, 330, 105, 100);
+
+        ctx.strokeStyle = "#eeeecc";
+        ctx.lineWidth = 2;
+
+        for (let i = 0; i < 4; i++) {
+            ctx.beginPath();
+            ctx.moveTo(480 + i * 24, 340);
+            ctx.lineTo(480 + i * 24, 420);
+            ctx.stroke();
+        }
+    }
+}
+
+function drawCar(c) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.angle);
+
+    ctx.fillStyle = "#17191c";
+    ctx.fillRect(-17, -c.height / 2 - 3, 12, 6);
+    ctx.fillRect(8, -c.height / 2 - 3, 12, 6);
+    ctx.fillRect(-17, c.height / 2 - 3, 12, 6);
+    ctx.fillRect(8, c.height / 2 - 3, 12, 6);
+
+    ctx.fillStyle = c.color;
+    ctx.fillRect(-c.width / 2, -c.height / 2,
+                 c.width, c.height);
+
+    ctx.fillStyle = "#243744";
+    ctx.fillRect(-8, -c.height / 2 + 3,
+                 19, c.height - 6);
+
+    ctx.restore();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    drawMap();
+    for (const c of cars) {
+    if (c.gridX === currentGridX &&
+        c.gridY === currentGridY) {
+        drawCar(c);
+    }
+}
+
+    if (!activeCar) {
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+        ctx.fillStyle = player.color;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+    }
+}
+
+function gameLoop() {
+    if (!isPaused) update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+// Luo karttaruudut ja aloita peli.
+for (let y = 0; y < 3; y++) {
+    for (let x = 0; x < 3; x++) {
+        getMap(x, y);
+    }
+}
+
+updateMinimap();
+gameLoop();
+</script>
+</body>
+</html>

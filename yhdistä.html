@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yhdistelypeli</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            user-select: none;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+            color: #e0e0e0;
+        }
+
+        #viesti {
+            font-size: 1.2rem;
+            height: 30px;
+            color: #4caf50;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        #pelilauta {
+            display: grid;
+            grid-template-columns: repeat(5, 60px);
+            grid-template-rows: repeat(5, 60px);
+            gap: 4px;
+            background-color: #333;
+            padding: 6px;
+            border-radius: 8px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            touch-action: none; /* Estää ruudun vierityksen puhelimella pelatessa */
+        }
+
+        .ruutu {
+            width: 60px;
+            height: 60px;
+            background-color: #222;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+        }
+
+        /* Pisteet eli värien aloitukset ja lopetukset */
+        .piste {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            z-index: 2;
+        }
+
+        /* Reitti/viiva ruudun sisällä */
+        .reitti {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+
+        .reitti::after {
+            content: '';
+            position: absolute;
+            background-color: currentColor;
+            border-radius: 10px;
+        }
+
+        /* Viivojen suunnat (rakennetaan dynaamisesti JS:llä) */
+        .reitti.keski::after { width: 20px; height: 20px; border-radius: 50%; }
+        .reitti.vasen::after { left: 0; width: 60%; height: 20px; }
+        .reitti.oikea::after { right: 0; width: 60%; height: 20px; }
+        .reitti.yla::after  { top: 0; width: 20px; height: 60%; }
+        .reitti.ala::after  { bottom: 0; width: 20px; height: 60%; }
+
+        /* Värien tyylit */
+        .punainen { color: #ff3b30; background-color: #ff3b30; }
+        .sininen  { color: #007aff; background-color: #007aff; }
+        .vihrea  { color: #4cd964; background-color: #4cd964; }
+        .keltainen { color: #ffcc00; background-color: #ffcc00; }
+        .oranssi  { color: #ff9500; background-color: #ff9500; }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            background-color: #007aff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<a href="yhdistä3.html">
+  <button style="position:absolute; top:20px; right:20px; padding:10px 14px; font-size:16px; cursor:pointer;">⬅️ Takaisin</button>
+</a>
+
+    <h1>Taso 1</h1>
+    <div id="viesti">Yhdistä samanväriset pisteet täyttämällä lauta!</div>
+    
+    <div id="pelilauta"></div>
+
+    <button onclick="nollaaPeli()">Aloita alusta</button>
+
+    <script>
+        const KOKO = 5;
+        const lautaElementti = document.getElementById('pelilauta');
+        const viestiElementti = document.getElementById('viesti');
+
+        // Määritetään värien aloitus- ja lopetuspisteet (x, y)
+const pisteet = [
+    { väri: 'punainen',  p1: {x: 3, y: 3}, p2: {x: 2, y: 4} },
+    { väri: 'sininen',   p1: {x: 2, y: 3}, p2: {x: 4, y: 1} },
+    { väri: 'vihrea',    p1: {x: 4, y: 0}, p2: {x: 2, y: 1} },
+    { väri: 'keltainen', p1: {x: 2, y: 0}, p2: {x: 0, y: 1} },
+    { väri: 'oranssi',   p1: {x: 1, y: 1}, p2: {x: 0, y: 4} }
+];
+
+        let pelitila = []; // Sisältää ruutujen tiedot
+        let onkoPiirtoKesken = false;
+        let nykyinenVäri = null;
+        let reittiX = [];
+        let reittiY = [];
+
+        // Alustetaan pelilauta
+        function luoLauta() {
+            lautaElementti.innerHTML = '';
+            pelitila = Array(KOKO).fill(null).map(() => Array(KOKO).fill(null).map(() => ({
+                onPiste: false,
+                väri: null,
+                viivaVäri: null,
+                suunnat: { vasen: false, oikea: false, yla: false, ala: false }
+            })));
+
+            // Asetetaan kiinteät väripisteet
+            pisteet.forEach(p => {
+                pelitila[p.p1.y][p.p1.x] = { onPiste: true, väri: p.väri, viivaVäri: null, suunnat: {} };
+                pelitila[p.p2.y][p.p2.x] = { onPiste: true, väri: p.väri, viivaVäri: null, suunnat: {} };
+            });
+
+            // Luodaan HTML-ruudut
+            for (let y = 0; y < KOKO; y++) {
+                for (let x = 0; x < KOKO; x++) {
+                    const ruutu = document.createElement('div');
+                    ruutu.className = 'ruutu';
+                    ruutu.dataset.x = x;
+                    ruutu.dataset.y = y;
+
+                    if (pelitila[y][x].onPiste) {
+                        const pisteElem = document.createElement('div');
+                        pisteElem.className = `piste ${pelitila[y][x].väri}`;
+                        ruutu.appendChild(pisteElem);
+                    }
+
+                    // Tapahtumankuuntelijat hiirelle ja kosketukselle
+                    ruutu.addEventListener('mousedown', (e) => aloitaPiirto(x, y));
+                    ruutu.addEventListener('mouseenter', (e) => jatkaPiirto(x, y));
+                    
+                    lautaElementti.appendChild(ruutu);
+                }
+            }
+        }
+
+        function aloitaPiirto(x, y) {
+            const ruutu = pelitila[y][x];
+            // Piirto voi alkaa vain väripisteestä
+            if (ruutu.onPiste) {
+                onkoPiirtoKesken = true;
+                nykyinenVäri = ruutu.väri;
+                reittiX = [x];
+                reittiY = [y];
+                nollaaVäriViivat(nykyinenVäri);
+                paivitaNaytto();
+            }
+        }
+
+        function jatkaPiirto(x, y) {
+            if (!onkoPiirtoKesken) return;
+
+            const edellinenX = reittiX[reittiX.length - 1];
+            const edellinenY = reittiY[reittiY.length - 1];
+
+            // Varmistetaan, että liikutaan vain viereiseen ruutuun (ei vinoon)
+            const etaisyysX = Math.abs(x - edellinenX);
+            const etaisyysY = Math.abs(y - edellinenY);
+            if ((etaisyysX === 1 && etaisyysY === 0) || (etaisyysX === 0 && etaisyysY === 1)) {
+                
+                const kohdeRuutu = pelitila[y][x];
+
+                // Jos osutaan väripisteeseen
+                if (kohdeRuutu.onPiste) {
+                    if (kohdeRuutu.väri !== nykyinenVäri) return; // Väärä väri, stop
+                }
+
+                // Jos palataan taaksepäin omalla reitillä, lyhennetään viivaa
+                if (reittiX.length > 1 && x === reittiX[reittiX.length - 2] && y === reittiY[reittiY.length - 2]) {
+                    poistaViimeisinSolmu();
+                    return;
+                }
+
+                // Ylikirjoitetaan muiden värien viivat jos astutaan päälle
+                if (kohdeRuutu.viivaVäri && kohdeRuutu.viivaVäri !== nykyinenVäri) {
+                    nollaaVäriViivat(kohdeRuutu.viivaVäri);
+                }
+
+                // Lisätään uusi ruutu reittiin
+                asetaSuunta(edellinenX, edellinenY, x, y);
+                reittiX.push(x);
+                reittiY.push(y);
+
+                if (!kohdeRuutu.onPiste) {
+                    kohdeRuutu.viivaVäri = nykyinenVäri;
+                }
+
+                paivitaNaytto();
+
+                // Jos saavuttiin maaliin (toiseen samanväriseen pisteeseen)
+                if (kohdeRuutu.onPiste && (x !== reittiX[0] || y !== reittiY[0])) {
+                    lopetaPiirto();
+                    tarkistaVoitto();
+                }
+            }
+        }
+
+        function lopetaPiirto() {
+            onkoPiirtoKesken = false;
+            nykyinenVäri = null;
+        }
+
+        // Apufunktiot kosketusnäytöille (hakee ruudun sormen alta)
+        function kosketusAlku(e) {
+            const kosketus = e.touches[0];
+            const elem = document.elementFromPoint(kosketus.clientX, kosketus.clientY);
+            const ruutu = elem ? elem.closest('.ruutu') : null;
+            if (ruutu) {
+                e.preventDefault();
+                aloitaPiirto(parseInt(ruutu.dataset.x), parseInt(ruutu.dataset.y));
+            }
+        }
+
+        function kosketusSiirto(e) {
+            if (!onkoPiirtoKesken) return;
+            const kosketus = e.touches[0];
+            const elem = document.elementFromPoint(kosketus.clientX, kosketus.clientY);
+            const ruutu = elem ? elem.closest('.ruutu') : null;
+            if (ruutu) {
+                e.preventDefault();
+                jatkaPiirto(parseInt(ruutu.dataset.x), parseInt(ruutu.dataset.y));
+            }
+        }
+		
+function asetaSuunta(x1, y1, x2, y2) {
+    const r1 = pelitila[y1][x1];
+    const r2 = pelitila[y2][x2];
+
+    if (x1 < x2) {
+        r1.suunnat.oikea = true;
+        r2.suunnat.vasen = true;
+    }
+
+    if (x1 > x2) {
+        r1.suunnat.vasen = true;
+        r2.suunnat.oikea = true;
+    }
+
+    if (y1 < y2) {
+        r1.suunnat.ala = true;
+        r2.suunnat.yla = true;
+    }
+
+    if (y1 > y2) {
+        r1.suunnat.yla = true;
+        r2.suunnat.ala = true;
+    }
+}
+
+        function poistaViimeisinSolmu() {
+            const vanhaX = reittiX.pop();
+            const vanhaY = reittiY.pop();
+            const uusiX = reittiX[reittiX.length - 1];
+            const uusiY = reittiY[reittiY.length - 1];
+
+            if (!pelitila[vanhaY][vanhaX].onPiste) {
+                pelitila[vanhaY][vanhaX].viivaVäri = null;
+            }
+            
+            // Katkaistaan suuntayhteydet
+            const r1 = pelitila[vanhaY][vanhaX];
+            const r2 = pelitila[uusiY][uusiX];
+            r1.suunnat = { vasen: false, oikea: false, yla: false, ala: false };
+            
+            if (vanhaX < uusiX) r2.suunnat.vasen = false;
+            if (vanhaX > uusiX) r2.suunnat.oikea = false;
+            if (vanhaY < uusiY) r2.suunnat.yla = false;
+            if (vanhaY > uusiY) r2.suunnat.ala = false;
+
+            paivitaNaytto();
+        }
+
+        function nollaaVäriViivat(väri) {
+            for (let y = 0; y < KOKO; y++) {
+                for (let x = 0; x < KOKO; x++) {
+                    if (pelitila[y][x].viivaVäri === väri) {
+                        pelitila[y][x].viivaVäri = null;
+                        pelitila[y][x].suunnat = { vasen: false, oikea: false, yla: false, ala: false };
+                    }
+                    if (pelitila[y][x].onPiste && pelitila[y][x].väri === väri) {
+                        pelitila[y][x].suunnat = { vasen: false, oikea: false, yla: false, ala: false };
+                    }
+                }
+            }
+        }
+
+        // Renderöi viivat ruutuihin graafisesti
+        function paivitaNaytto() {
+            const ruudut = lautaElementti.children;
+            let i = 0;
+            for (let y = 0; y < KOKO; y++) {
+                for (let x = 0; x < KOKO; x++) {
+                    const ruutuElem = ruudut[i++];
+                    const data = pelitila[y][x];
+                    
+                    // Poistetaan vanha reitti-elementti jos sellainen on
+                    const vanhaReitti = ruutuElem.querySelector('.reitti');
+                    if (vanhaReitti) vanhaReitti.remove();
+
+                    const aktiivinenVäri = data.onPiste ? data.väri : data.viivaVäri;
+
+                    if (aktiivinenVäri && Object.values(data.suunnat).some(v => v)) {
+                        const reittiElem = document.createElement('div');
+                        reittiElem.className = `reitti ${aktiivinenVäri}`;
+                        
+                        // Lisätään luokat sen mukaan, mihin suuntiin viiva kulkee ruudussa
+                        if (data.suunnat.vasen) reittiElem.classList.add('vasen');
+                        if (data.suunnat.oikea) reittiElem.classList.add('oikea');
+                        if (data.suunnat.yla) reittiElem.classList.add('yla');
+                        if (data.suunnat.ala) reittiElem.classList.add('ala');
+                        if (data.onPiste) reittiElem.classList.add('keski');
+
+                        ruutuElem.appendChild(reittiElem);
+                    }
+                }
+            }
+        }
+
+        function tarkistaVoitto() {
+            // 1. Tarkistetaan, että kaikki ruudut on täytetty
+            for (let y = 0; y < KOKO; y++) {
+                for (let x = 0; x < KOKO; x++) {
+                    if (!pelitila[y][x].onPiste && !pelitila[y][x].viivaVäri) return;
+                }
+            }
+
+            // 2. Varmistetaan, että kaikki pisteet on yhdistetty oikein (kaksi suuntaa per pari)
+            let kaikkiYhdistetty = pisteet.every(p => {
+                const r1 = pelitila[p.p1.y][p.p1.x];
+                const r2 = pelitila[p.p2.y][p.p2.x];
+                return Object.values(r1.suunnat).includes(true) && Object.values(r2.suunnat).includes(true);
+            });
+
+            if (kaikkiYhdistetty) {
+                viestiElementti.textContent = "🏆 Hienoa! Läpäisit tason!";
+            }
+        }
+
+        function nollaaPeli() {
+            viestiElementti.textContent = "Yhdistä samanväriset pisteet täyttämällä lauta!";
+            luoLauta();
+        }
+
+        // Kosketus- ja hiiritapahtumat lisätään vain kerran
+        lautaElementti.addEventListener('touchstart', kosketusAlku, { passive: false });
+        lautaElementti.addEventListener('touchmove', kosketusSiirto, { passive: false });
+        window.addEventListener('mouseup', lopetaPiirto);
+        window.addEventListener('touchend', lopetaPiirto);
+
+        // Käynnistetään peli ensimmäisen kerran
+        luoLauta();
+    </script>
+</body>
+</html>

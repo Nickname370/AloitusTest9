@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planeetan Tutkimus Peli</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#070d1c; color:#eaf3ff; font-family:system-ui,Segoe UI,sans-serif; }
+  #game { display:block; width:100%; height:100vh; image-rendering:pixelated; }
+  #hud { position:fixed; inset:12px 12px auto 12px; display:flex; gap:8px; flex-wrap:wrap; pointer-events:none; }
+  .panel { background:rgba(8,17,36,.88); border:1px solid #36527a; border-radius:10px; padding:9px 12px; box-shadow:0 4px 18px #0005; }
+  #stats { display:flex; gap:12px; flex-wrap:wrap; font-size:14px; }
+  #stats b { color:#8fe8ff; }
+  #right { margin-left:auto; max-width:330px; }
+  #message { position:fixed; left:50%; bottom:150px; transform:translateX(-50%); background:#0b1930ed; border:1px solid #5d8bc4; border-radius:12px; padding:12px 18px; max-width:min(650px,92vw); text-align:center; }
+  #controls { position:fixed; bottom:12px; left:12px; right:12px; display:flex; justify-content:space-between; gap:12px; align-items:end; pointer-events:none; }
+  #controls .panel { max-width:520px; font-size:13px; line-height:1.55; }
+  #prompt { color:#ffdf8b; font-weight:700; }
+  #overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#030817dd; padding:20px; }
+  #overlay.hidden { display:none; }
+  #menu { max-width:600px; width:100%; text-align:center; padding:28px; border:1px solid #4c77ac; border-radius:18px; background:linear-gradient(145deg,#14294a,#091326); box-shadow:0 15px 60px #0009; }
+  #menu h1 { margin:0 0 8px; font-size:clamp(30px,6vw,48px); color:#9beaff; }
+  #menu p { line-height:1.55; }
+  button { background:#176a9d; color:white; border:1px solid #8ddfff; padding:12px 22px; border-radius:9px; font:inherit; font-weight:700; cursor:pointer; }
+  button:focus-visible { outline:3px solid #ffe08b; outline-offset:3px; }
+  .small { color:#b9cbe6; font-size:13px; }
+  @media (max-width:700px) {
+    #right { display:none; }
+    #controls { flex-direction:column; align-items:stretch; }
+    #controls .panel { max-width:none; }
+    #message { bottom:180px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Planeetan Tutkimus Peli - pelialue"></canvas>
+  <a href="valikko3.html">
+    <button style="position:absolute; top:80px; left:10px; padding:10px 14px; font-size:16px; cursor:pointer;">⬅️ Takaisin</button>
+  </a>
+<div id="hud">
+  <div class="panel" id="stats">
+    <span>🪨 Malmi: <b id="ore">0</b></span>
+    <span>🔩 Metalli: <b id="metal">0</b></span>
+    <span>🔋 Energia: <b id="energy">0</b></span>
+    <span>🫁 Happi: <b id="oxygen">100%</b></span>
+    <span>👨‍🚀 Asukkaat: <b id="people">0</b></span>
+	
+  </div>
+  <div class="panel" id="right"><b id="planetName">Planeetta: Aava</b><br><span id="planetInfo">Tutkimaton maailma</span></div>
+</div>
+<div id="message">Tervetuloa, tutkimusmatkailija! Paina <b>ENTER</b> aloittaaksesi.</div>
+<div id="controls">
+  <div class="panel">
+    <b>Näppäimet</b><br>
+    <b>WASD</b> liiku · <b>E</b> kerää resurssi / käytä kohdetta<br>
+    <b>B</b> rakenna valittu rakennus · <b>Q</b> vaihda rakennusta<br>
+    <b>F</b> nouse alukseen / laskeudu · <b>R</b> tutki seuraava planeetta<br>
+    <b>ESC</b> tauko · <b>ENTER</b> aloita / jatka
+  </div>
+  <div class="panel"><b>Tehtävä</b><br>Kerää resursseja, rakenna tukikohta ja kasvata siirtokuntaa.<br><span id="prompt">Etsi sininen laskeutumisalue.</span></div>
+</div>
+<div id="overlay">
+  <div id="menu">
+    <h1>🪐 Planeetan Tutkimus Peli</h1>
+    <p>Tutki kaukaisia maailmoja, kerää raaka-aineita ja rakenna ihmiskunnan ensimmäisiä siirtokuntia.</p>
+    <p><b>Ohjaus:</b> WASD = liiku · E = kerää/käytä · B = rakenna · Q = vaihda rakennusta · F = alus · R = uusi planeetta</p>
+    <button id="start">Aloita tutkimus</button>
+    <p class="small">Peli toimii näppäimistöllä. Aloituspainiketta voi käyttää myös Enter-näppäimellä.</p>
+  </div>
+</div>
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const $ = id => document.getElementById(id);
+  let W=0,H=0, running=false, paused=false, last=0, tick=0;
+  function resize(){ W=canvas.width=innerWidth*devicePixelRatio; H=canvas.height=innerHeight*devicePixelRatio; canvas.style.width=innerWidth+'px'; canvas.style.height=innerHeight+'px'; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); W=innerWidth; H=innerHeight; }
+  addEventListener('resize',resize); resize();
+
+  const keys = {};
+  let player = {x:0,y:0,dir:0,speed:190};
+  let ship = {x:0,y:0};
+  let inShip = false;
+  let resources = {ore:0,metal:0,energy:30,oxygen:100,people:0};
+  let selectedBuilding=0;
+  const buildings = [
+    {name:'Asuinmoduuli', cost:{metal:5,energy:3}, color:'#83d8ff', desc:'Lisää 2 asukasta'},
+    {name:'Aurinkopaneeli', cost:{metal:3,ore:2}, color:'#ffd36b', desc:'Tuottaa energiaa'},
+    {name:'Happigeneraattori', cost:{metal:4,ore:3}, color:'#a6ffbd', desc:'Täydentää happea'},
+    {name:'Tutka', cost:{metal:4,energy:5}, color:'#d8a5ff', desc:'Paljastaa resursseja'}
+  ];
+  const planets = [
+    {name:'Aava', color:'#4b9b78', sky:'#0c1930', terrain:'#234d45', desc:'Lauhkea ja täynnä mineraaleja'},
+    {name:'Punakuru', color:'#c96c52', sky:'#241126', terrain:'#673b38', desc:'Kuuma punainen kiviplaneetta'},
+    {name:'Jääkehä', color:'#8bd8e8', sky:'#10283f', terrain:'#496f85', desc:'Jäinen maailma, vähän energiaa'},
+    {name:'Myrskylä', color:'#b49ae8', sky:'#17152d', terrain:'#45405f', desc:'Kaukaisen kaasujätin kuu'}
+  ];
+  let planetIndex=0, objects=[], built=[], discovered=new Set(), worldSeed=1;
+  function rand(){ worldSeed=(worldSeed*1664525+1013904223)>>>0; return worldSeed/4294967296; }
+  function newWorld(){
+    worldSeed=101+planetIndex*919; objects=[]; built=[];
+    const margin=100, count=26;
+    for(let i=0;i<count;i++){
+      let type=rand()<.48?'ore':rand()<.58?'crystal':'rock';
+      objects.push({x:margin+rand()*(Math.max(100,W-2*margin)),y:margin+rand()*(Math.max(100,H-2*margin)),type,amount:type==='ore'?2:1,taken:false});
+    }
+    player.x=W*.48; player.y=H*.55; ship.x=W*.57; ship.y=H*.55; inShip=false;
+    objects.push({x:ship.x+35,y:ship.y+20,type:'landing',taken:false});
+    updateHud();
+  }
+  function say(text){ $('message').innerHTML=text; }
+  function updateHud(){
+    $('ore').textContent=resources.ore; $('metal').textContent=resources.metal;
+    $('energy').textContent=resources.energy; $('oxygen').textContent=Math.floor(resources.oxygen)+'%';
+    $('people').textContent=resources.people;
+    $('planetName').textContent='Planeetta: '+planets[planetIndex].name;
+    $('planetInfo').textContent=planets[planetIndex].desc;
+    $('prompt').textContent='Rakennus: '+buildings[selectedBuilding].name+' ('+costText(buildings[selectedBuilding].cost)+')';
+  }
+  function costText(c){return Object.entries(c).map(([k,v])=>({metal:'metalli',ore:'malmi',energy:'energia'}[k]+' '+v)).join(' + ');}
+  function near(a,b,d=52){return Math.hypot(a.x-b.x,a.y-b.y)<d;}
+  function closestObject(){
+    let list=objects.filter(o=>!o.taken&&o.type!=='landing');
+    list.sort((a,b)=>Math.hypot(a.x-player.x,a.y-player.y)-Math.hypot(b.x-player.x,b.y-player.y));
+    return list[0]&&near(player,list[0],58)?list[0]:null;
+  }
+  function interact(){
+    if(inShip){say('Olet aluksessa. Paina <b>F</b> laskeutuaksesi tai <b>R</b> matkustaaksesi.');return;}
+    const obj=closestObject();
+    if(obj){
+      obj.taken=true;
+      if(obj.type==='ore'){resources.ore+=obj.amount; resources.metal+=1; say('Keräsit malmia ja 1 metallin!');}
+      else if(obj.type==='crystal'){resources.energy+=8; say('Keräsit energiakristallin: +8 energiaa!');}
+      else {resources.ore+=1; say('Keräsit kivinäytteen: +1 malmi.');}
+      updateHud(); return;
+    }
+    const b=built.find(b=>near(player,b,55));
+    if(b){ if(b.kind===0){resources.people+=2; say('Uudet asukkaat muuttivat siirtokuntaan!');}
+      if(b.kind===1){resources.energy+=10;say('Aurinkopaneeli keräsi energiaa: +10.');}
+      if(b.kind===2){resources.oxygen=100;say('Happigeneraattori täytti happivarastot.');}
+      if(b.kind===3){for(let i=0;i<4;i++){objects.push({x:Math.max(35,Math.min(W-35,player.x+(rand()-.5)*240)),y:Math.max(80,Math.min(H-35,player.y+(rand()-.5)*240)),type:'ore',amount:2,taken:false});}say('Tutka löysi uusia mineraaliesiintymiä lähistöltä!');}
+      updateHud();return;
+    }
+    say('Ei kerättävää lähellä. Etsi hohtavia resursseja tai lähesty rakennusta.');
+  }
+  function build(){
+    if(inShip){say('Laskeudu ensin planeetan pinnalle (F).');return;}
+    const b=buildings[selectedBuilding], c=b.cost;
+    for(const k in c) if(resources[k]<c[k]){say('Resurssit eivät riitä! Tarvitset: '+costText(c));return;}
+    for(const k in c) resources[k]-=c[k];
+    built.push({x:player.x,y:player.y,kind:selectedBuilding,color:b.color});
+    say('Rakensit: '+b.name+'! Lähesty rakennusta ja paina E käyttääksesi sitä.');
+    updateHud();
+  }
+  function travel(){
+    if(!inShip){
+      if(near(player,ship,80)){inShip=true;player.x=ship.x;player.y=ship.y;say('Nousit alukseen. Paina R tutkiaksesi seuraavan planeetan.');}
+      else say('Alus on kauempana. Etsi alus ja paina F sen vieressä.');
+    } else {inShip=false;player.x=ship.x+45;player.y=ship.y+15;say('Laskeuduit planeetalle '+planets[planetIndex].name+'.');}
+  }
+  function nextPlanet(){
+    if(!inShip){say('Matkusta ensin alukseen painamalla F aluksen lähellä.');return;}
+    planetIndex=(planetIndex+1)%planets.length;
+    resources.energy=Math.max(0,resources.energy-5);
+    resources.oxygen=Math.max(35,resources.oxygen-8);
+    discovered.add(planetIndex);
+    newWorld();
+    say('Tutkit nyt planeettaa <b>'+planets[planetIndex].name+'</b>! '+planets[planetIndex].desc+'.');
+    inShip=true; player.x=ship.x;player.y=ship.y;
+    updateHud();
+  }
+  function keydown(e){
+    const k=e.key.toLowerCase();
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+    if(keys[k])return; keys[k]=true;
+    if(k==='enter'){ if(!running){startGame();} else if(paused){paused=false;say('Tutkimus jatkuu.');} return; }
+    if(!running)return;
+    if(k==='escape'){paused=!paused;say(paused?'Tauko. Paina Enter jatkaaksesi.':'Tutkimus jatkuu.');return;}
+    if(paused)return;
+    if(k==='e')interact();
+    if(k==='b')build();
+    if(k==='q'){selectedBuilding=(selectedBuilding+1)%buildings.length;updateHud();say('Valittu rakennus: '+buildings[selectedBuilding].name+'. Paina B rakentaaksesi.');}
+    if(k==='f')travel();
+    if(k==='r')nextPlanet();
+  }
+  addEventListener('keydown',keydown); addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+  function startGame(){running=true;paused=false;$('overlay').classList.add('hidden');newWorld();say('Tutkimus alkaa! Liiku WASD, kerää resursseja E:llä ja rakenna B:llä.');}
+  $('start').addEventListener('click',startGame);
+
+  function draw(){
+    const p=planets[planetIndex];
+    ctx.clearRect(0,0,W,H);
+    const grad=ctx.createLinearGradient(0,0,0,H);grad.addColorStop(0,p.sky);grad.addColorStop(1,'#080d1b');ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+    // stars
+    for(let i=0;i<100;i++){let x=(i*137.5+planetIndex*61)%W,y=(i*83.3+17)%H;ctx.fillStyle=i%5===0?'#a8dfff':'#d9e5ff';ctx.globalAlpha=.35+(i%4)*.15;ctx.fillRect(x,y,2,2);}ctx.globalAlpha=1;
+    // planet horizon and ground
+    ctx.fillStyle=p.terrain;ctx.beginPath();ctx.ellipse(W*.5,H*1.22,W*.82,H*.58,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=p.color;ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(W*.5,H*1.22,W*.82,H*.58,0,Math.PI*1.05,Math.PI*1.95);ctx.stroke();
+    // distant planet
+    ctx.fillStyle=p.color;ctx.globalAlpha=.8;ctx.beginPath();ctx.arc(W*.82,H*.2,Math.min(W,H)*.075,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+    // landing pad
+    ctx.fillStyle='#163b55';ctx.strokeStyle='#6fe3ff';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(ship.x,ship.y+18,42,14,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+    // ship
+    ctx.save();ctx.translate(ship.x,ship.y);ctx.fillStyle='#d9e8f5';ctx.beginPath();ctx.moveTo(0,-24);ctx.lineTo(24,14);ctx.lineTo(0,8);ctx.lineTo(-24,14);ctx.closePath();ctx.fill();ctx.fillStyle='#53d9ff';ctx.beginPath();ctx.arc(0,-3,6,0,Math.PI*2);ctx.fill();ctx.restore();
+    // resources
+    for(const o of objects){if(o.taken||o.type==='landing')continue;
+      ctx.save();ctx.translate(o.x,o.y);
+      if(o.type==='ore'){ctx.fillStyle='#d58a59';ctx.beginPath();ctx.moveTo(-12,6);ctx.lineTo(-7,-9);ctx.lineTo(5,-13);ctx.lineTo(13,1);ctx.lineTo(4,10);ctx.closePath();ctx.fill();}
+      else if(o.type==='crystal'){ctx.fillStyle='#69eaff';ctx.shadowColor='#4ee7ff';ctx.shadowBlur=16;ctx.beginPath();ctx.moveTo(0,-15);ctx.lineTo(10,0);ctx.lineTo(0,13);ctx.lineTo(-9,0);ctx.closePath();ctx.fill();}
+      else {ctx.fillStyle='#929eaf';ctx.beginPath();ctx.arc(0,0,9,0,Math.PI*2);ctx.fill();}
+      ctx.restore();
+    }
+    // buildings
+    for(const b of built){ctx.fillStyle=b.color;ctx.fillRect(b.x-15,b.y-15,30,30);ctx.strokeStyle='#f3f8ff';ctx.strokeRect(b.x-15,b.y-15,30,30);ctx.fillStyle='#15243b';ctx.fillRect(b.x-6,b.y-6,12,12);}
+    // player
+    if(!inShip){ctx.save();ctx.translate(player.x,player.y);ctx.fillStyle='#f4f7ff';ctx.beginPath();ctx.arc(0,-5,9,0,Math.PI*2);ctx.fill();ctx.fillStyle='#54d8ff';ctx.fillRect(-8,4,16,18);ctx.fillStyle='#ffcf70';ctx.fillRect(-10,21,7,5);ctx.fillRect(3,21,7,5);ctx.restore();}
+    else {ctx.fillStyle='#9cecff';ctx.font='bold 14px system-ui';ctx.fillText('ALUKSESSA',ship.x-43,ship.y+45);}
+    // hint line
+    if(!inShip){const obj=closestObject();if(obj){ctx.strokeStyle='#fff3a3';ctx.setLineDash([5,4]);ctx.beginPath();ctx.arc(obj.x,obj.y,22,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}}
+    if(paused){ctx.fillStyle='#0009';ctx.fillRect(0,0,W,H);ctx.fillStyle='white';ctx.font='bold 38px system-ui';ctx.textAlign='center';ctx.fillText('TAUKO',W/2,H/2);ctx.textAlign='left';}
+  }
+  function update(dt){
+    if(!running||paused)return;
+    tick+=dt;
+    if(!inShip){
+      let dx=0,dy=0;
+      if(keys['w']||keys['arrowup'])dy--;if(keys['s']||keys['arrowdown'])dy++;
+      if(keys['a']||keys['arrowleft'])dx--;if(keys['d']||keys['arrowright'])dx++;
+      if(dx&&dy){dx*=.707;dy*=.707;}
+      player.x=Math.max(20,Math.min(W-20,player.x+dx*player.speed*dt));
+      player.y=Math.max(75,Math.min(H-35,player.y+dy*player.speed*dt));
+      resources.oxygen=Math.max(0,resources.oxygen-dt*.35);
+      if(resources.oxygen===0){resources.oxygen=100;player.x=ship.x+45;player.y=ship.y+20;say('Happi loppui! Palaat aluksen luo. Rakenna happigeneraattori.');}
+    }
+    if(tick>1){tick=0;updateHud();}
+  }
+  function loop(t){const dt=Math.min(.04,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop);}
+  newWorld(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

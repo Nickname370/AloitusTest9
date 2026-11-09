@@ -1,0 +1,447 @@
+
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Räjähdys Simulaattori</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#080e1c;color:white;
+ font-family:Arial,sans-serif;
+}
+header{
+ text-align:center;padding:18px;
+ background:#111d32;
+ border-bottom:2px solid #304b70;
+}
+h1{margin:0;color:#76c9ff;letter-spacing:3px}
+header p{color:#9eafc8;margin-bottom:0}
+main{max-width:1200px;margin:auto;padding:15px}
+.layout{
+ display:grid;
+ grid-template-columns:260px 1fr;
+ gap:15px;
+}
+.panel{
+ background:#142139;border:1px solid #304b70;
+ border-radius:10px;padding:15px;
+}
+h2{font-size:18px;color:#83caff}
+.object{
+ background:#202f49;border:2px solid #405777;
+ border-radius:8px;padding:12px;margin:9px 0;
+ cursor:pointer;
+}
+.object.selected{border-color:#42c5ff;background:#25415e}
+.object:hover{background:#304967}
+.object strong{display:block;margin-bottom:5px}
+.object small{color:#aabbd0}
+#map{
+ width:100%;height:auto;display:block;
+ background:#0c2741;border-radius:10px;
+ cursor:crosshair;
+}
+.mapwrap{position:relative}
+.mapinfo{
+ display:flex;justify-content:space-between;
+ flex-wrap:wrap;gap:10px;margin-top:10px;
+ color:#b6c8dd;font-size:14px;
+}
+button{
+ background:#1789cf;color:white;border:0;
+ padding:13px 18px;border-radius:7px;
+ font-size:15px;font-weight:bold;cursor:pointer;
+}
+button:hover{background:#36a9ef}
+button:disabled{opacity:.4;cursor:not-allowed}
+.launch{width:100%;margin-top:15px;background:#d64a37}
+.launch:hover{background:#f16b51}
+#result{
+ margin-top:15px;padding:15px;
+ background:#0c192b;border:1px solid #385777;
+ border-radius:9px;display:none;
+}
+.stat{
+ display:inline-block;background:#203653;
+ padding:10px;border-radius:7px;margin:5px;
+}
+#status{color:#82d3ff}
+@media(max-width:700px){
+ .layout{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<a href="valikko3.html">
+    <button style="position:absolute; top:10px; right:10px; padding:10px 14px; font-size:16px; cursor:pointer;">⬅️ Takaisin</button>
+</a>
+
+<header>
+<h1>✦ Räjähdys Simulaattori ✦</h1>
+</header>
+
+<main>
+<div class="layout">
+
+<aside class="panel">
+<h2>1. VALITSE RÄJÄHDE</h2>
+<div id="objects"></div>
+<button class="launch" id="launch">✦ KÄYNNISTÄ RÄJÄHDYS</button>
+<p id="status">Valitse räjähde ja kohta kartalta.</p>
+</aside>
+
+<section class="panel">
+<h2>2. VALITSE KOHDE MAAILMANKARTALTA</h2>
+
+<div class="mapwrap">
+<svg id="map" viewBox="0 0 900 450"
+ xmlns="http://www.w3.org/2000/svg">
+
+<defs>
+ <pattern id="grid" width="30" height="30"
+ patternUnits="userSpaceOnUse">
+  <path d="M30 0H0V30" fill="none"
+  stroke="#23405a" stroke-width="1"/>
+ </pattern>
+ <radialGradient id="flash">
+  <stop offset="0" stop-color="#fff"/>
+  <stop offset=".2" stop-color="#fff1a0"/>
+  <stop offset=".5" stop-color="#ff843c" stop-opacity=".8"/>
+  <stop offset="1" stop-color="#ff421b" stop-opacity="0"/>
+ </radialGradient>
+</defs>
+
+<rect width="900" height="450" fill="#0c2741"/>
+<rect width="900" height="450" fill="url(#grid)"/>
+
+<!-- YHTENÄISET MANTEREET -->
+<g fill="#36765f"
+   stroke="#69a887"
+   stroke-width="2"
+   stroke-linejoin="round">
+
+<!-- POHJOIS- JA ETELÄ-AMERIKKA -->
+<path d="
+M65 95
+L110 65 L180 70 L220 95
+L250 110 L225 140 L190 150
+L180 190 L155 220 L170 260
+L190 300 L225 390 L250 325
+L265 275 L240 230 L200 220
+L170 200 L155 175 L135 160
+L115 160 L80 145 Z
+"/>
+
+<!-- EUROOPPA, AFRIKKA JA AASIA -->
+<path d="
+M300 80
+L360 65 L405 85
+L440 75 L510 60 L575 80
+L620 70 L690 90 L760 110
+L820 145 L790 180
+L730 165 L680 190
+L620 165 L570 190
+L520 155 L475 145
+L450 155 L430 145
+L410 155 L380 145
+L340 130 L315 110 Z
+
+M430 145
+L470 185 L450 250
+L425 310 L395 290
+L370 220 L380 175 Z
+"/>
+
+<!-- AUSTRALIA -->
+<path d="
+M690 210
+L750 205 L795 230
+L780 270 L735 285
+L700 255 Z
+"/>
+
+<!-- ANTARKTIS -->
+<path d="
+M0 435
+L80 420 L180 425
+L280 410 L380 420
+L480 405 L580 415
+L680 405 L780 420
+L880 410 L900 430
+L900 450 L0 450 Z
+"/>
+
+</g>
+<g fill="#a7c6a8" opacity=".8" font-size="13"
+ text-anchor="middle">
+ <text x="155" y="125">POHJOIS-</text>
+ <text x="155" y="141">AMERIKKA</text>
+ <text x="223" y="280">ETELÄ-</text>
+ <text x="223" y="296">AMERIKKA</text>
+ <text x="375" y="105">EUROOPPA</text>
+ <text x="415" y="220">AFRIKKA</text>
+ <text x="640" y="130">AASIA</text>
+ <text x="745" y="245">AUSTRALIA</text>
+ <text x="375" y="440">ANTARKTIS</text>
+</g>
+
+<!-- Valintamerkki -->
+<circle id="target" cx="450" cy="225" r="7"
+ fill="#ffffff" stroke="#54caff" stroke-width="3"/>
+<circle id="area" cx="450" cy="225" r="0"
+ fill="#ff6239" fill-opacity=".2"
+ stroke="#ffad55" stroke-width="2"
+ stroke-dasharray="7 5" style="display:none"/>
+<circle id="flashCircle" cx="450" cy="225" r="0"
+ fill="url(#flash)" opacity="0"/>
+
+<text id="maplabel" x="465" y="215"
+ fill="white" font-size="13">Valittu kohde</text>
+</svg>
+</div>
+
+<div class="mapinfo">
+<span id="coordinates">Sijainti: ei valittu</span>
+<span>Maapallo</span>
+</div>
+
+<div id="result">
+<h2>✦ RÄJÄHDYKSEN TIEDOT</h2>
+<p>XM = Xeno Metri / MRP = Mega Räjähdys Piste</p>
+<div id="details"></div>
+</div>
+
+</section>
+</div>
+</main>
+
+<script>
+
+// ======================================
+// OBJEKTIT
+// Lisää ja muokkaa objekteja tästä!
+// ======================================
+
+const OBJECTS = [
+ {
+  "id": "c83",
+  "name": "C83 Delta Kranaatti",
+  "description": "Hyvin edistynyt kranaatti.",
+  "color": "#ffbd55",
+  "zone": 0.0007,
+  "power": 1,
+  "effect": "Käyttää mikro-kineettistä shokkiaaltoa. Heitettäessä se skannaa ympäristön sekunnissa ja kohdistaa räjähdyspaineen suoraviivaisesti vain vihollisen suojarakenteisiin, jättäen heittäjän täysin turvaan. Erittäin pieni vaikutus"
+ },
+ {
+  "id": "nuke",
+  "name": "Ydinase",
+  "description": "Iso ydinase.",
+  "color": "#ffbd55",
+  "zone": 5,
+  "power": 3,
+  "effect": "Perustuu massiiviseen fissio-fuusioreaktioon. Laukaisun jälkeen se luo ison tulipallon, äärimmäisen sokeuttavan valonvälähdyksen ja sähkömagneettisen pulssin (EMP), joka pimentää kaiken elektroniikan ja jättää jälkeensä radioaktiivisen laskeuman. Keskikokoinen vaikutus"
+ },
+   {
+  "id": "pyrogeeli",
+  "name": "Ignis-9 Pyro-Geeli", 
+  "description": "Sulattaa panssarit ja kohteet tehokkaasti. Luokiteltu sotarikokseksi Paxia-konventiossa.",
+  "color": "#55d9ff",
+  "zone": 5,
+  "power": 7,
+  "effect": "Ignis-9 Pyro-Geeli on luokiteltu avaruussotarikokseksi Paxia-konvention artikla 12:n (tähtiaika 441.22 / 22.11.3142) mukaan, joka kieltää tarpeetonta ja pitkitettyä kärsimystä aiheuttavat aseet. Kun geeli ammutaan kohteeseen, se leviää pintaa pitkin kuin vesi. Heti kun pinta kokee iskun (kuten luodin osuman), geelin molekyylit murtuvat ja se räjähtää plasmalämpötilassa, sulattaen paksuimmankin Kronium-panssarin sekunneissa. Pieni vaikutus"
+ },
+ {
+  "id": "quantum_fuse",
+  "name": "Kvantti-Sidosketju",
+  "description": "Pyyhkii kokonaisen taistelukentän siruverkolla.",
+  "color": "#ff6355",
+  "zone": 70,
+  "power": 10,
+  "effect": "Laukaisee kentälle mikroskooppisia kvanttisiruja, jotka lomittuvat emopommin kanssa. Heti kun pääydin syttyy, sirujen välille syntyy nanosekunnissa puhtaan energian muodostama verkko. Tämä sähköinen energiasade repii ja höyrystää kaiken sirujen väliin jäävän materian etäisyydestä riippumatta. Laaja vaikutus"
+ },
+ {
+  "id": "kaak",
+  "name": "KÄÄK-Pommi / M3 KAAK5",
+  "description": "M3 Kvantti-Aetherium Annihilaatio-kärki",
+  "color": "#c17bff",
+  "zone": 2000,
+  "power": 40,
+  "effect": "Vapauttaa planeetanlaajuisen Aetherium-pilven. Kun sähkömagneettinen kvantti-impulssi iskee, koko planeetan ilmakehä ja maaperä muuttuvat nanosekunnissa timanttiakin kovemmaksi teräkseksi. Välittömästi tämän jälkeen vapautuva antimateria aiheuttaa täydellisen ketjureaktion, joka murtaa jähmettyneen planeetan sisältäpäin ja räjäyttää sen kosmiseksi pölyksi. Tuhosi koko planeetan"
+ },
+{
+  "id": "HUSL",
+  "name": "HUSL-Murskain / A9 OMEGA-X",
+  "description": "Hyperulottuvuuksien välinen Singulariteetti-Luhistaja. Luokiteltu sotarikokseksi Paxia-konventiossa.",
+  "color": "#09b875",
+  "zone": 1500000000000,
+  "power": 960,
+  "effect": "HUSL-Murskain / A9 OMEGA-X on luokiteltu avaruussotarikokseksi Paxia-konvention artikla 7:n (tähtiaika 441.22 / 22.11.3142) mukaan, joka kieltää kosmisen tason massatuhoaseet ja hallitsemattomat singulariteetit. Käynnistää aurinkokunnankokoisen gravitaatioromahduksen, joka repii aika-avaruuden kudoksen rikki 1,5 miljardin XM (noin 3,17 valovuoden) säteellä. Alueen kaikki planeetat ja kuut imeytyvät välittömästi mikroskooppiseen mustaan aukkoon, joka muuttaa kaiken massan puhtaaksi, vihreäksi plasmaenergiaksi. Räjähdys pyyhkii koko aurinkokunnan kartalta yhdellä iskulla. Tuhosi koko aurinkokunnan"
+}
+];
+
+// ======================================
+// PELIN TOIMINTA
+// ======================================
+
+let selected = OBJECTS[0];
+let x = 450;
+let y = 225;
+let hasTarget = false;
+let busy = false;
+
+const map = document.getElementById("map");
+const target = document.getElementById("target");
+const area = document.getElementById("area");
+const flash = document.getElementById("flashCircle");
+
+function renderObjects(){
+ const root=document.getElementById("objects");
+ root.innerHTML="";
+
+ OBJECTS.forEach(obj=>{
+  const div=document.createElement("div");
+  div.className="object"+
+   (selected.id===obj.id?" selected":"");
+
+  div.innerHTML=`
+   <strong style="color:${obj.color}">
+    ${obj.name}
+   </strong>
+   <small>${obj.description}</small><br>
+   <small>Alue: ${obj.zone} XM</small>
+  `;
+
+  div.onclick=()=>{
+   if(busy)return;
+   selected=obj;
+   renderObjects();
+   document.getElementById("status").textContent=
+    "Valittu: "+obj.name;
+  };
+
+  root.appendChild(div);
+ });
+}
+
+renderObjects();
+
+// Kartan klikkaaminen
+
+map.addEventListener("click",e=>{
+ if(busy)return;
+
+ const rect=map.getBoundingClientRect();
+ const svgPoint=map.createSVGPoint();
+
+ svgPoint.x=e.clientX;
+ svgPoint.y=e.clientY;
+
+ const p=svgPoint.matrixTransform(
+  map.getScreenCTM().inverse()
+ );
+
+ x=Math.max(10,Math.min(890,p.x));
+ y=Math.max(10,Math.min(440,p.y));
+
+ target.setAttribute("cx",x);
+ target.setAttribute("cy",y);
+
+ area.style.display="none";
+ flash.setAttribute("opacity",0);
+
+ const lat=((225-y)/225*90).toFixed(1);
+ const lon=((x-450)/450*180).toFixed(1);
+
+ document.getElementById("coordinates").textContent=
+  `Karttasijainti: ${lat}°, ${lon}°`;
+
+ document.getElementById("maplabel")
+  .setAttribute("x",Math.min(x+15,780));
+ document.getElementById("maplabel")
+  .setAttribute("y",y-12);
+
+ hasTarget=true;
+
+ document.getElementById("status").textContent=
+  "Kohde valittu. Valmis käynnistämään.";
+});
+
+// Törmäysanimaatio
+
+document.getElementById("launch").onclick=()=>{
+ if(busy||!hasTarget){
+  if(!hasTarget)
+   alert("Valitse ensin kohta maailmankartalta!");
+  return;
+ }
+
+ busy=true;
+ document.getElementById("launch").disabled=true;
+
+ document.getElementById("result").style.display="none";
+ document.getElementById("status").textContent=
+  "✦ RÄJÄHDYS KÄYNNISSÄ...";
+
+ let radius=0;
+ let opacity=1;
+
+ area.setAttribute("cx",x);
+ area.setAttribute("cy",y);
+ area.style.display="block";
+
+ flash.setAttribute("cx",x);
+ flash.setAttribute("cy",y);
+
+ function animate(){
+  radius+=selected.zone/15;
+  opacity-=0.025;
+
+  area.setAttribute("r",Math.min(radius,selected.zone));
+  flash.setAttribute("r",radius*1.5);
+  flash.setAttribute("opacity",Math.max(0,opacity));
+
+  if(radius<selected.zone){
+   requestAnimationFrame(animate);
+  }else{
+   finish();
+  }
+ }
+
+ animate();
+};
+
+function finish(){
+ busy=false;
+ document.getElementById("launch").disabled=false;
+
+ const lat=((225-y)/225*90).toFixed(1);
+ const lon=((x-450)/450*180).toFixed(1);
+
+ document.getElementById("status").textContent=
+  "Tapahtuma valmis!";
+
+ document.getElementById("details").innerHTML=`
+  <div class="stat">
+   <b>Räjähde</b><br>${selected.name}
+  </div>
+  <div class="stat">
+   <b>Alue</b><br>${selected.zone} XM 
+  </div>
+  <div class="stat">
+   <b>Voimakkuusluokka</b><br>${selected.power}/1000 MRP
+  </div>
+  <div class="stat">
+   <b>Karttasijainti</b><br>${lat}°, ${lon}°
+  </div>
+  <p>${selected.effect}.</p>
+ `;
+
+ document.getElementById("result").style.display="block";
+}
+
+</script>
+</body>
+</html>

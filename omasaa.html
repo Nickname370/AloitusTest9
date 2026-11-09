@@ -1,0 +1,249 @@
+
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sääsovellus Ukkonen</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            width: 100%;
+            max-width: 450px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 24px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+        button.save-btn {
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 5px;
+        }
+        button.save-btn:hover {
+            background-color: #357abd;
+        }
+        .weather-list {
+            width: 100%;
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .weather-card {
+            background: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .weather-info h2 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        .weather-info p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .weather-temp {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .temp-value {
+            font-size: 26px;
+            font-weight: bold;
+            color: #4a90e2;
+        }
+        .delete-btn {
+            background: #ff5e5e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            width: auto;
+        }
+        .delete-btn:hover {
+            background: #e04848;
+        }
+        .empty-msg {
+            text-align: center;
+            color: #fff;
+            font-weight: 500;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+<a href="valikko3.html">
+    <button style="position:absolute; top:10px; right:10px; width:8%; padding:10px 14px; font-size:16px; cursor:pointer;">⬅️ Takaisin</button>
+</a>
+
+    <div class="container">
+        <h1>🌤️ Sääsovellus Ukkonen</h1>
+        <form id="weatherForm">
+            <div class="form-group">
+                <label for="location">Päivä</label>
+                <input type="text" id="location" placeholder="Esim. Maanantai" required>
+            </div>
+            <div class="form-group">
+                <label for="temperature">Lämpötila (°C)</label>
+                <input type="number" id="temperature" placeholder="Esim. 22" step="0.5" required>
+            </div>
+            <div class="form-group">
+                <label for="condition">Säätila</label>
+                <select id="condition">
+                    <option value="☀️ Aurinkoista">☀️ Aurinkoista</option>
+                    <option value="⛅ Puolipilvistä">⛅ Puolipilvistä</option>
+                    <option value="☁️ Pilvistä">☁️ Pilvistä</option>
+                    <option value="🌧️ Vesisadetta">🌧️ Vesisadetta</option>
+                    <option value="⛈️ Ukkosta">⛈️ Ukkosta</option>
+                    <option value="❄️ Lumisadetta">❄️ Lumisadetta</option>
+                    <option value="🌫️ Sumuista">🌫️ Sumuista</option>
+                    <option value="💨 Tuulista">💨 Tuulista</option>
+                </select>
+            </div>
+            <button type="submit" class="save-btn">Tallenna sää</button>
+        </form>
+    </div>
+
+    <div class="weather-list" id="weatherList"></div>
+
+    <script>
+        const form = document.getElementById('weatherForm');
+        const weatherList = document.getElementById('weatherList');
+
+        // Haetaan tallennetut säät selaimen muistista (localStorage)
+        let savedWeathers = JSON.parse(localStorage.getItem('omatSaat')) || [];
+
+        // Funktio säiden piirtämiseksi ruudulle
+        function renderWeathers() {
+            weatherList.innerHTML = '';
+
+            if (savedWeathers.length === 0) {
+                weatherList.innerHTML = '<p class="empty-msg">Ei vielä tallennettuja säitä. Luo ensimmäinen yläpuolelta!</p>';
+                return;
+            }
+
+            savedWeathers.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = 'weather-card';
+
+                card.innerHTML = `
+                    <div class="weather-info">
+                        <h2>${escapeHTML(item.location)}</h2>
+                        <p>${item.condition} • <small>${item.time}</small></p>
+                    </div>
+                    <div class="weather-temp">
+                        <span class="temp-value">${item.temperature > 0 ? '+' : ''}${item.temperature}°C</span>
+                        <button class="delete-btn" onclick="deleteWeather(${index})">Poista</button>
+                    </div>
+                `;
+                weatherList.appendChild(card);
+            });
+        }
+
+        // Uuden sään tallennus
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const location = document.getElementById('location').value.trim();
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            const condition = document.getElementById('condition').value;
+
+            // Haetaan nykyinen kellonaika
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+
+            const newWeather = {
+                location,
+                temperature,
+                condition,
+                time: timeString
+            };
+
+            // Lisätään listan alkuun ja tallennetaan selaimeen
+            savedWeathers.unshift(newWeather);
+            localStorage.setItem('omatSaat', JSON.stringify(savedWeathers));
+
+            form.reset();
+            renderWeathers();
+        });
+
+        // Sään poistaminen
+        function deleteWeather(index) {
+            savedWeathers.splice(index, 1);
+            localStorage.setItem('omatSaat', JSON.stringify(savedWeathers));
+            renderWeathers();
+        }
+
+        // Suojaus erikoismerkeille
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag]));
+        }
+
+        // Näytetään tallennetut säät heti kun sivu avataan
+        renderWeathers();
+    </script>
+</body>
+</html>

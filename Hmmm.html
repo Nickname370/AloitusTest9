@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pikkupelit</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background: #f0f0f0;
+    margin: 0;
+    padding: 20px;
+}
+
+h1 {
+    margin-bottom: 30px;
+}
+
+.peli {
+    background: white;
+    margin: 20px auto;
+    padding: 20px;
+    border-radius: 10px;
+    width: 80%;
+    max-width: 600px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    margin: 5px;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* AUTOKISA */
+#rata {
+    width: 450px;
+    max-width: 90%;
+    margin: 20px auto;
+    border: 2px solid black;
+    padding: 10px;
+    overflow: hidden;
+}
+
+.auto {
+    height: 30px;
+    margin: 5px 0;
+    background: red;
+    color: white;
+    text-align: left;
+    padding-left: 5px;
+    line-height: 30px;
+    width: 40px;
+    white-space: nowrap;
+}
+
+/* PIILOSEKUNTIKELLO */
+#piiloKello {
+    font-size: 40px;
+    font-weight: bold;
+    margin: 20px;
+    min-height: 50px;
+}
+
+.piilo {
+    visibility: hidden;
+}
+
+/* KORIPALLO */
+#koripalloPeli {
+    border: 3px solid #222;
+    border-radius: 10px;
+    background: #87ceeb;
+    max-width: 100%;
+    cursor: crosshair;
+}
+
+/* TIMANTTIPELI */
+#laatikot {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+    gap: 12px;
+    justify-content: center;
+    margin: 20px auto;
+}
+
+.laatikko {
+    width: 100px;
+    height: 100px;
+    border: none;
+    border-radius: 12px;
+    background: #4b5563;
+    color: white;
+    font-size: 35px;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.15s;
+}
+
+.laatikko:hover {
+    transform: scale(1.05);
+    background: #374151;
+}
+
+.laatikko.avattu {
+    cursor: default;
+}
+
+.laatikko.timantti {
+    background: #38bdf8;
+}
+
+.laatikko.pommi {
+    background: #ef4444;
+}
+
+/* MOBIILI */
+@media (max-width: 600px) {
+    .peli {
+        width: 90%;
+    }
+
+    #laatikot {
+        grid-template-columns: repeat(3, 80px);
+    }
+
+    .laatikko {
+        width: 80px;
+        height: 80px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<a href="valikko3.html">
+  <button style="position:absolute; top:120px; right:570px; padding:10px 14px; font-size:16px; cursor:pointer;">⬅️ Takaisin</button>
+</a>
+
+<h1>🎮 Pikkupelit</h1>
+
+<!-- TILASTOT -->
+<div class="peli">
+    <br>
+    <h2>📊 Tilastot</h2>
+    <p>🏆 Voitot: <span id="voitot">0</span></p>
+    <p>❌ Häviöt: <span id="haviot">0</span></p>
+	<p>📈 Nettotulos: <span id="nettotulos">0</span></p>
+<p>
+    👤 Pelaaja:
+    <input type="text" id="pelaajanNimi" placeholder="Kirjoita nimi">
+    <button id="tallennaNimiBtn" onclick="tallennaNimi()">Tallenna</button>
+</p>
+</div>
+
+
+<!-- NOPPA -->
+<div class="peli">
+    <h2>🎲 Nopanheitto</h2>
+
+    <p>Jos saat 5 tai 6, voitat!</p>
+
+    <button onclick="heitto()">
+        Heitä noppaa
+    </button>
+
+    <p id="noppaTulos"></p>
+</div>
+
+
+<!-- ONNENPYÖRÄ -->
+<div class="peli">
+    <h2>🎡 Onnenpyörä</h2>
+
+    <p>Valitse numero 1–9.</p>
+
+    <select id="numero">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+    </select>
+
+    <br>
+
+    <button onclick="pyorita()">
+        Pyöritä
+    </button>
+
+    <p id="pyoraTulos"></p>
+</div>
+
+
+<!-- PIILOSEKUNTIKELLO -->
+<div class="peli">
+    <h2>⏱️ Piilosekuntikello</h2>
+
+    <p>
+        Yritä pysäyttää kello mahdollisimman tarkasti kohtaan
+        <strong>5,00 sekuntia</strong>.
+    </p>
+
+    <div id="piiloKello">
+        0,00 s
+    </div>
+
+    <button id="aloitaKelloBtn" onclick="aloitaPiiloKello()">
+        Aloita
+    </button>
+
+    <button id="pysaytaKelloBtn"
+            onclick="pysaytaPiiloKello()"
+            disabled>
+        Pysäytä!
+    </button>
+
+    <p id="piiloKelloTulos"></p>
+</div>
+
+
+<!-- AUTOKISA -->
+<div class="peli">
+    <h2>🏎️ Autokilpailu</h2>
+
+    <p>Valitse auto, jonka uskot voittavan.</p>
+
+    <select id="valittuAuto">
+        <option value="1">🚗 Auto 1</option>
+        <option value="2">🚙 Auto 2</option>
+        <option value="3">🏎️ Auto 3</option>
+        <option value="4">🚕 Auto 4</option>
+    </select>
+
+    <br>
+
+    <button id="kisaBtn" onclick="aloitaKisa()">
+        Aloita kisa
+    </button>
+
+    <div id="rata">
+        <div class="auto" id="auto1">🚗 Auto 1</div>
+        <div class="auto" id="auto2">🚙 Auto 2</div>
+        <div class="auto" id="auto3">🏎️ Auto 3</div>
+        <div class="auto" id="auto4">🚕 Auto 4</div>
+    </div>
+
+    <p id="kisaTulos"></p>
+</div>
+
+
+<!-- KORIPALLO -->
+<div class="peli">
+    <h2>🏀 Koripallo</h2>
+
+    <p>
+        Vedä palloa hiirellä taaksepäin ja päästä irti!
+    </p>
+
+    <canvas
+        id="koripalloPeli"
+        width="600"
+        height="400">
+    </canvas>
+
+    <p id="koripalloTulos"></p>
+
+    <button onclick="nollaaKoripallo()">
+        🔄 Uusi heitto
+    </button>
+</div>
+
+
+<!-- TIMANTTI VAI POMMI -->
+<div class="peli">
+    <h2>💎 Timantti vai pommi</h2>
+
+    <p>
+        Avaa laatikoita ja kasvata pottia.
+        Kotiuta ennen kuin löydät pommin!
+    </p>
+
+    <h3>
+        💰 Kierroksen potti:
+        <span id="timanttiPotti">0</span>
+    </h3>
+
+    <div id="laatikot"></div>
+
+    <button
+        id="kotiutaBtn"
+        onclick="kotiutaTimantit()"
+        disabled>
+        💰 Kotiuta pisteet
+    </button>
+
+    <button onclick="uusiTimanttiKierros()">
+        🔄 Uusi kierros
+    </button>
+
+    <p id="timanttiTulos"></p>
+</div>
+
+<div class="peli">
+    <h2>🎡 Onnenpyörä 1–100</h2>
+    <p>Sinun numerosi on aina <strong>100</strong>.</p>
+    <p>Jos saat 100, voitot tuplaantuvat!</p>
+    <p>Jos saat muun numeron, häviöt tuplaantuvat!</p>
+
+    <button onclick="pyorita100()">🎡 Pyöritä</button>
+
+    <h2 id="pyora100Numero">?</h2>
+    <p id="pyora100Tulos"></p>
+</div>
+
+<script>
+
+/* =====================================
+   YLEISET TILASTOT
+===================================== */
+
+let voitot = 0;
+let haviot = 0;
+
+
+function paivitaLaskurit() {
+    document.getElementById("voitot").textContent = voitot;
+    document.getElementById("haviot").textContent = haviot;
+
+    let nettotulos = voitot - haviot;
+    document.getElementById("nettotulos").textContent = nettotulos;
+}
+/* =====================================
+   NOPPA
+===================================== */
+
+function heitto() {
+
+    let luku = Math.floor(Math.random() * 6) + 1;
+
+    if (luku >= 5) {
+
+        voitot++;
+        paivitaLaskurit();
+
+        document.getElementById("noppaTulos").innerHTML =
+            "🎲 Noppa: " + luku + " — 🎉 Voitit!";
+
+    } else {
+
+        haviot++;
+        paivitaLaskurit();
+
+        document.getElementById("noppaTulos").innerHTML =
+            "🎲 Noppa: " + luku + " — ❌ Hävisit!";
+    }
+}
+
+
+/* =====================================
+   ONNENPYÖRÄ
+===================================== */
+
+let pyoraKaynnissa = false;
+
+function pyorita() {
+
+    if (pyoraKaynnissa) return;
+
+    pyoraKaynnissa = true;
+
+    let valinta =
+        Number(document.getElementById("numero").value);
+
+    let vaihe = 0;
+
+    let animaatio = setInterval(() => {
+
+        vaihe++;
+
+        let nro =
+            Math.floor(Math.random() * 9) + 1;
+
+        document.getElementById("pyoraTulos").innerHTML =
+            "🎡 Pyörä näyttää: " + nro;
+
+        if (vaihe >= 20) {
+
+            clearInterval(animaatio);
+
+            pyoraKaynnissa = false;
+
+            if (nro === valinta) {
+
+                voitot++;
+                paivitaLaskurit();
+
+                document.getElementById("pyoraTulos").innerHTML =
+                    "🎡 Pyörä pysähtyi numeroon " +
+                    nro +
+                    " — 🎉 Voitit!";
+
+            } else {
+
+                haviot++;
+                paivitaLaskurit();
+
+                document.getElementById("pyoraTulos").innerHTML =
+                    "🎡 Pyörä pysähtyi numeroon " +
+                    nro +
+                    " — ❌ Hävisit!";
+            }
+        }
+
+    }, 100);
+}
+
+function pyorita100() {
+    let numero = Math.floor(Math.random() * 100) + 1;
+
+    document.getElementById("pyora100Numero").textContent = numero;
+
+    if (numero === 100) {
+        voitot *= 2;
+        paivitaLaskurit();
+
+        document.getElementById("pyora100Tulos").innerHTML =
+            "🎯 Sait 100! 🏆 Voitot tuplaantuivat!";
+    } else {
+        haviot *= 2;
+        paivitaLaskurit();
+
+        document.getElementById("pyora100Tulos").innerHTML =
+            "❌ Sait " + numero + "! Häviöt tuplaantuivat!";
+    }
+}
+
+/* =====================================
+   PIILOSEKUNTIKELLO
+===================================== */
+
+let piiloKelloAlkoi;
+let piiloKelloAjastin;
+let piiloKelloKaynnissa = false;
+
+function aloitaPiiloKello() {
+
+    clearInterval(piiloKelloAjastin);
+
+    piiloKelloKaynnissa = true;
+
+    piiloKelloAlkoi =
+        performance.now();
+
+    let kello =
+        document.getElementById("piiloKello");
+
+    let tulos =
+        document.getElementById("piiloKelloTulos");
+
+    kello.classList.remove("piilo");
+
+    kello.textContent = "0,00 s";
+
+    tulos.textContent = "";
+
+    document.getElementById(
+        "aloitaKelloBtn"
+    ).disabled = true;
+
+    document.getElementById(
+        "pysaytaKelloBtn"
+    ).disabled = false;
+
+    piiloKelloAjastin = setInterval(() => {
+
+        let aika =
+            (performance.now() - piiloKelloAlkoi) / 1000;
+
+        kello.textContent =
+            aika.toFixed(2).replace(".", ",") +
+            " s";
+
+        if (aika >= 3.5) {
+            kello.classList.add("piilo");
+        }
+
+    }, 10);
+}
+
+
+function pysaytaPiiloKello() {
+
+    if (!piiloKelloKaynnissa) return;
+
+    let aika =
+        (performance.now() - piiloKelloAlkoi) / 1000;
+
+    clearInterval(piiloKelloAjastin);
+
+    piiloKelloKaynnissa = false;
+
+    let erotus =
+        Math.abs(aika - 5);
+
+    let kello =
+        document.getElementById("piiloKello");
+
+    kello.classList.remove("piilo");
+
+    kello.textContent =
+        aika.toFixed(2).replace(".", ",") +
+        " s";
+
+    if (erotus <= 0.05) {
+
+        voitot++;
+        paivitaLaskurit();
+
+        document.getElementById(
+            "piiloKelloTulos"
+        ).innerHTML =
+            "🎯 Uskomattoman tarkka! 🎉 Voitit!<br>" +
+            "Aikasi: " +
+            aika.toFixed(2).replace(".", ",") +
+            " s";
+
+    } else {
+
+        haviot++;
+        paivitaLaskurit();
+
+        document.getElementById(
+            "piiloKelloTulos"
+        ).innerHTML =
+            "❌ Hävisit!<br>" +
+            "Aikasi: " +
+            aika.toFixed(2).replace(".", ",") +
+            " s";
+    }
+
+    document.getElementById(
+        "aloitaKelloBtn"
+    ).disabled = false;
+
+    document.getElementById(
+        "pysaytaKelloBtn"
+    ).disabled = true;
+}
+
+
+/* =====================================
+   AUTOKISA
+===================================== */
+
+let kisaKaynnissa = false;
+
+function aloitaKisa() {
+
+    if (kisaKaynnissa) return;
+
+    kisaKaynnissa = true;
+
+    let valinta =
+        Number(
+            document.getElementById("valittuAuto").value
+        );
+
+    let sijainnit = [0, 0, 0, 0];
+
+    document.getElementById("kisaBtn").disabled = true;
+
+    for (let i = 1; i <= 4; i++) {
+
+        document.getElementById(
+            "auto" + i
+        ).style.width = "40px";
+    }
+
+    document.getElementById(
+        "kisaTulos"
+    ).textContent = "";
+
+    let kilpailu = setInterval(() => {
+
+        for (let i = 0; i < 4; i++) {
+
+            sijainnit[i] +=
+                Math.random() * 15;
+
+            document.getElementById(
+                "auto" + (i + 1)
+            ).style.width =
+                (40 + sijainnit[i]) + "px";
+
+            if (sijainnit[i] >= 350) {
+
+                clearInterval(kilpailu);
+
+                let voittaja = i + 1;
+
+                kisaKaynnissa = false;
+
+                document.getElementById(
+                    "kisaBtn"
+                ).disabled = false;
+
+                if (voittaja === valinta) {
+
+                    voitot++;
+                    paivitaLaskurit();
+
+                    document.getElementById(
+                        "kisaTulos"
+                    ).innerHTML =
+                        "🏆 Auto " +
+                        voittaja +
+                        " voitti! 🎉 Sinä voitit!";
+
+                } else {
+
+                    haviot++;
+                    paivitaLaskurit();
+
+                    document.getElementById(
+                        "kisaTulos"
+                    ).innerHTML =
+                        "🏆 Auto " +
+                        voittaja +
+                        " voitti. ❌ Hävisit!";
+                }
+
+                return;
+            }
+        }
+
+    }, 100);
+}
+
+
+/* =====================================
+   KORIPALLO
+===================================== */
+
+const canvas =
+    document.getElementById("koripalloPeli");
+
+const ctx =
+    canvas.getContext("2d");
+
+let pallo = {
+    x: 100,
+    y: 330,
+    r: 15,
+    vx: 0,
+    vy: 0
+};
+
+let kori = {
+    x: 480,
+    y: 150
+};
+
+let levy = {
+    x: 550,
+    y: 80,
+    leveys: 10,
+    korkeus: 100
+};
+
+let vetaaPalloa = false;
+let palloLentaa = false;
+let hiiriX = 0;
+let hiiriY = 0;
+let heittoKaynnissa = false;
+
+
+function piirraKoripallo() {
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    /* Maa */
+    ctx.fillStyle = "#777";
+
+    ctx.fillRect(
+        0,
+        350,
+        canvas.width,
+        50
+    );
+
+    /* Korilevy */
+    ctx.fillStyle = "white";
+
+    ctx.fillRect(
+        levy.x,
+        levy.y,
+        levy.leveys,
+        levy.korkeus
+    );
+
+    /* Kori */
+    ctx.beginPath();
+
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 6;
+
+    ctx.arc(
+        kori.x,
+        kori.y,
+        35,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.stroke();
+
+    /* Verkko */
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+
+    for (let i = -25; i <= 25; i += 10) {
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            kori.x + i,
+            kori.y + 5
+        );
+
+        ctx.lineTo(
+            kori.x + i / 2,
+            kori.y + 55
+        );
+
+        ctx.stroke();
+    }
+
+    /* Pallo */
+    ctx.beginPath();
+
+    ctx.fillStyle = "#f28c28";
+
+    ctx.arc(
+        pallo.x,
+        pallo.y,
+        pallo.r,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    /* Pallon viivat */
+    ctx.strokeStyle = "#222";
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+
+    ctx.arc(
+        pallo.x,
+        pallo.y,
+        pallo.r * 0.7,
+        -Math.PI / 2,
+        Math.PI / 2
+    );
+
+    ctx.stroke();
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        pallo.x - pallo.r,
+        pallo.y
+    );
+
+    ctx.lineTo(
+        pallo.x + pallo.r,
+        pallo.y
+    );
+
+    ctx.stroke();
+
+    /* Tähtäysviiva */
+    if (vetaaPalloa) {
+
+        ctx.beginPath();
+
+        ctx.strokeStyle =
+            "rgba(0,0,0,0.5)";
+
+        ctx.setLineDash([5, 5]);
+
+        ctx.moveTo(
+            pallo.x,
+            pallo.y
+        );
+
+        ctx.lineTo(
+            hiiriX,
+            hiiriY
+        );
+
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+    }
+}
+
+
+function animaatio() {
+
+    if (palloLentaa) {
+
+        pallo.x += pallo.vx;
+        pallo.y += pallo.vy;
+
+        pallo.vy += 0.25;
+
+        /* Maa */
+        if (pallo.y + pallo.r >= 350) {
+
+            pallo.y =
+                350 - pallo.r;
+
+            pallo.vy *= -0.45;
+            pallo.vx *= 0.8;
+
+            if (Math.abs(pallo.vy) < 1) {
+
+                palloLentaa = false;
+
+                if (heittoKaynnissa) {
+
+                    heittoKaynnissa = false;
+
+                    haviot++;
+                    paivitaLaskurit();
+
+                    document.getElementById(
+                        "koripalloTulos"
+                    ).textContent =
+                        "❌ Pallo ei mennyt koriin. Hävisit!";
+                }
+            }
+        }
+
+        /* Kori */
+        if (
+            pallo.x > kori.x - 35 &&
+            pallo.x < kori.x + 35 &&
+            pallo.y > kori.y - 5 &&
+            pallo.y < kori.y + 20 &&
+            pallo.vy > 0
+        ) {
+
+            voittoKoripallossa();
+        }
+
+        /* Pallo pois kentältä */
+        if (
+            pallo.x < -50 ||
+            pallo.x > canvas.width + 50 ||
+            pallo.y < -100
+        ) {
+
+            palloLentaa = false;
+
+            if (heittoKaynnissa) {
+
+                heittoKaynnissa = false;
+
+                haviot++;
+                paivitaLaskurit();
+
+                document.getElementById(
+                    "koripalloTulos"
+                ).innerHTML =
+                    "❌ Ohi! Hävisit!";
+            }
+        }
+    }
+
+    piirraKoripallo();
+
+    requestAnimationFrame(animaatio);
+}
+
+
+function haeHiiri(e) {
+
+    const rect =
+        canvas.getBoundingClientRect();
+
+    hiiriX =
+        (e.clientX - rect.left) *
+        (canvas.width / rect.width);
+
+    hiiriY =
+        (e.clientY - rect.top) *
+        (canvas.height / rect.height);
+}
+
+
+canvas.addEventListener(
+    "mousedown",
+    function(e) {
+
+        if (palloLentaa) return;
+
+        haeHiiri(e);
+
+        const etaisyys =
+            Math.hypot(
+                hiiriX - pallo.x,
+                hiiriY - pallo.y
+            );
+
+        if (etaisyys < 35) {
+
+            vetaaPalloa = true;
+        }
+    }
+);
+
+
+canvas.addEventListener(
+    "mousemove",
+    function(e) {
+
+        haeHiiri(e);
+    }
+);
+
+
+canvas.addEventListener(
+    "mouseup",
+    function() {
+
+        if (!vetaaPalloa) return;
+
+        vetaaPalloa = false;
+        palloLentaa = true;
+        heittoKaynnissa = true;
+
+        let voimaX =
+            pallo.x - hiiriX;
+
+        let voimaY =
+            pallo.y - hiiriY;
+
+        pallo.vx =
+            voimaX * 0.12;
+
+        pallo.vy =
+            voimaY * 0.12;
+
+        document.getElementById(
+            "koripalloTulos"
+        ).textContent =
+            "🏀 Heitto!";
+    }
+);
+
+
+function voittoKoripallossa() {
+
+    if (!heittoKaynnissa) return;
+
+    heittoKaynnissa = false;
+    palloLentaa = false;
+
+    voitot++;
+    paivitaLaskurit();
+
+    document.getElementById(
+        "koripalloTulos"
+    ).innerHTML =
+        "🏀🔥 KORI! Voitit!";
+}
+
+
+function nollaaKoripallo() {
+
+    pallo.x = 100;
+    pallo.y = 330;
+
+    pallo.vx = 0;
+    pallo.vy = 0;
+
+    palloLentaa = false;
+    vetaaPalloa = false;
+    heittoKaynnissa = false;
+
+    document.getElementById(
+        "koripalloTulos"
+    ).textContent = "";
+
+    piirraKoripallo();
+}
+
+
+function tallennaNimi() {
+    const nimiInput = document.getElementById("pelaajanNimi");
+    const nimi = nimiInput.value.trim();
+
+    if (nimi === "") {
+        alert("Kirjoita ensin nimi!");
+        return;
+    }
+
+    nimiInput.value = nimi;
+    nimiInput.disabled = true;
+    document.getElementById("tallennaNimiBtn").disabled = true;
+}
+
+/* =====================================
+   TIMANTTI VAI POMMI
+===================================== */
+
+let timanttiLaatikot = [];
+let timanttiPotti = 0;
+let timanttiKierrosKaynnissa = false;
+let avatutLaatikot = 0;
+
+
+function uusiTimanttiKierros() {
+
+    const laatikot =
+        document.getElementById("laatikot");
+
+    laatikot.innerHTML = "";
+
+    timanttiPotti = 0;
+    avatutLaatikot = 0;
+    timanttiKierrosKaynnissa = true;
+
+    document.getElementById(
+        "timanttiPotti"
+    ).textContent = "0";
+
+    document.getElementById(
+        "timanttiTulos"
+    ).textContent = "";
+
+    document.getElementById(
+        "kotiutaBtn"
+    ).disabled = true;
+
+    timanttiLaatikot = [
+        "💎",
+        "💎",
+        "💎",
+        "💎",
+        "💎",
+        "💎",
+        "💎",
+        "💣",
+        "💣"
+    ];
+
+    /* Sekoitetaan */
+    timanttiLaatikot.sort(
+        () => Math.random() - 0.5
+    );
+
+    for (let i = 0; i < 9; i++) {
+
+        const nappi =
+            document.createElement("button");
+
+        nappi.className = "laatikko";
+        nappi.textContent = "❓";
+
+        nappi.onclick = function() {
+
+            avaaTimanttiLaatikko(
+                i,
+                nappi
+            );
+        };
+
+        laatikot.appendChild(nappi);
+    }
+}
+
+
+function avaaTimanttiLaatikko(
+    numero,
+    nappi
+) {
+
+    if (!timanttiKierrosKaynnissa) {
+        return;
+    }
+
+    if (nappi.classList.contains("avattu")) {
+        return;
+    }
+
+    nappi.classList.add("avattu");
+
+    avatutLaatikot++;
+
+    const sisalto =
+        timanttiLaatikot[numero];
+
+    if (sisalto === "💎") {
+
+        /* Jokainen timantti kasvattaa palkintoa */
+        const palkinto =
+            10 * avatutLaatikot;
+
+        timanttiPotti += palkinto;
+
+        nappi.textContent = "💎";
+
+        nappi.classList.add(
+            "timantti"
+        );
+
+        document.getElementById(
+            "timanttiPotti"
+        ).textContent =
+            timanttiPotti;
+
+        document.getElementById(
+            "timanttiTulos"
+        ).innerHTML =
+            "💎 Löysit timantin! +" +
+            palkinto +
+            " pistettä!";
+
+        document.getElementById(
+            "kotiutaBtn"
+        ).disabled = false;
+
+        /* Kaikki avattu */
+        if (avatutLaatikot === 9) {
+
+            kotiutaTimantit();
+        }
+
+    } else {
+
+        /* POMMI */
+        nappi.textContent = "💣";
+
+        nappi.classList.add(
+            "pommi"
+        );
+
+        timanttiKierrosKaynnissa =
+            false;
+
+        haviot += timanttiPotti;
+
+        paivitaLaskurit();
+
+        document.getElementById(
+            "timanttiTulos"
+        ).innerHTML =
+            "💣 POMMI! Menetit kierroksen potin!";
+
+        document.getElementById(
+            "kotiutaBtn"
+        ).disabled = true;
+
+        naytaKaikkiLaatikot();
+    }
+}
+
+function kotiutaTimantit() {
+    if (!timanttiKierrosKaynnissa) return;
+    if (timanttiPotti <= 0) return;
+
+    // Pisteet muuttuvat suoraan voitoiksi
+    voitot += timanttiPotti;
+    paivitaLaskurit();
+
+    document.getElementById("timanttiTulos").innerHTML =
+        "💰 Kotiutit " + timanttiPotti + " pistettä! 🎉<br>" +
+        "🏆 Sait " + timanttiPotti + " voittoa!";
+
+    timanttiKierrosKaynnissa = false;
+    document.getElementById("kotiutaBtn").disabled = true;
+
+    naytaKaikkiLaatikot();
+}
+
+function naytaKaikkiLaatikot() {
+
+    const kaikki =
+        document.querySelectorAll(
+            "#laatikot .laatikko"
+        );
+
+    kaikki.forEach(
+        (laatikko, i) => {
+
+            if (
+                !laatikko.classList.contains(
+                    "avattu"
+                )
+            ) {
+
+                laatikko.textContent =
+                    timanttiLaatikot[i];
+
+                laatikko.classList.add(
+                    "avattu"
+                );
+
+                if (
+                    timanttiLaatikot[i] === "💎"
+                ) {
+
+                    laatikko.classList.add(
+                        "timantti"
+                    );
+
+                } else {
+
+                    laatikko.classList.add(
+                        "pommi"
+                    );
+                }
+            }
+        }
+    );
+}
+
+
+/* =====================================
+   KÄYNNISTÄ PELIT
+===================================== */
+
+uusiTimanttiKierros();
+
+piirraKoripallo();
+
+animaatio();
+
+</script>
+
+</body>
+</html>

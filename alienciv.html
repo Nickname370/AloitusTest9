@@ -1,0 +1,425 @@
+
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Uusi Planeetta</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101722;color:white;font-family:Arial}
+header{background:#18283b;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+h2{margin:0;color:#8de5ff}
+#resources{display:flex;gap:16px;flex-wrap:wrap}
+.resource{font-weight:bold}
+main{display:flex;height:calc(100vh - 105px);min-height:450px}
+#maparea{flex:1;overflow:auto;background:#101c24;display:flex;align-items:center;justify-content:center}
+#map{display:grid;grid-template-columns:repeat(18,48px);grid-template-rows:repeat(14,48px);gap:2px;padding:12px}
+.tile{width:48px;height:48px;border:1px solid #263c43;display:flex;align-items:center;justify-content:center;font-size:25px;cursor:pointer;position:relative;user-select:none}
+.tile:hover{border:2px solid white;z-index:2}
+.tile.selected{border:3px solid yellow;z-index:3}
+.tile .small{position:absolute;bottom:0;right:2px;font-size:10px;color:white}
+.plains{background:#71894b}
+.forest{background:#285a3d}
+.mountain{background:#777b80}
+.water{background:#245d8b}
+.desert{background:#ad925b}
+.ice{background:#a2cbd4}
+#panel{width:310px;max-width:38%;background:#1b2b3c;padding:14px;overflow:auto;border-left:2px solid #344c60}
+button{background:#267da2;color:white;border:0;padding:9px;margin:3px;cursor:pointer;border-radius:5px;font-weight:bold}
+button:hover{background:#39a5d3}
+button:disabled{opacity:.35;cursor:not-allowed}
+h3{color:#8de5ff;margin:8px 0}
+hr{border-color:#40566a}
+.info{background:#263d50;padding:9px;border-radius:6px;margin:7px 0}
+.unit{font-size:22px}
+#end{background:#bd812d}
+#log{font-size:12px;color:#c3d4df;max-height:120px;overflow:auto}
+@media(max-width:650px){
+main{flex-direction:column;height:auto}
+#maparea{height:55vh;min-height:350px}
+#panel{width:100%;max-width:none;max-height:45vh}
+}
+</style>
+</head>
+<body>
+<header>
+<h2>🚀 Uusi Planeetta</h2>
+<div id="resources">
+<span class="resource">🍎 <span id="food">20</span></span>
+<span class="resource">🔩 <span id="metal">30</span></span>
+<span class="resource">⚡ <span id="energy">20</span></span>
+<span class="resource">📅 Vuoro <span id="turn">1</span></span>
+</div>
+<button id="end" onclick="endTurn()">LOPETA VUORO ▶</button>
+</header>
+<main>
+<div id="maparea">
+<div id="map"></div>
+</div>
+<aside id="panel">
+<h3>🌌 Planeetta</h3>
+<p>Valitse kartalta ruutu, yksikkö tai kaupunki.</p>
+<div id="details"></div>
+<hr>
+<h3>📜 Tapahtumat</h3>
+<div id="log"></div>
+</aside>
+</main>
+  <a href="valikko3.html">
+    <button style="position:absolute; top:496px; right:16px; padding:10px 14px; font-size:16px; cursor:pointer;">⬅️ Takaisin</button>
+<script>
+const W=18,H=14;
+let map=[],units=[],cities=[],aliens=[];
+let food=20,metal=30,energy=20,turn=1;
+let selected=null;
+let logs=[];
+let nextId=1;
+
+const terrain={
+ plains:{name:"Tasanko",icon:"🌱",food:2,metal:0},
+ forest:{name:"Metsä",icon:"🌲",food:1,metal:1},
+ mountain:{name:"Vuoristo",icon:"⛰️",food:0,metal:2},
+ water:{name:"Vesi",icon:"🌊",food:0,metal:0},
+ desert:{name:"Aavikko",icon:"🏜️",food:0,metal:1},
+ ice:{name:"Jäätikkö",icon:"❄️",food:0,metal:0}
+};
+
+function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+
+function log(s){
+ logs.unshift("Vuoro "+turn+": "+s);
+ logs=logs.slice(0,35);
+ document.getElementById("log").innerHTML=logs.map(x=>"<div>"+x+"</div>").join("");
+}
+
+function key(x,y){return y*W+x}
+function get(x,y){return map[y]?.[x]}
+function cityAt(x,y){return cities.find(c=>c.x===x&&c.y===y)}
+function unitAt(x,y){return units.find(u=>u.x===x&&u.y===y)}
+function alienAt(x,y){return aliens.find(a=>a.x===x&&a.y===y)}
+
+function init(){
+ for(let y=0;y<H;y++){
+  map[y]=[];
+  for(let x=0;x<W;x++){
+   let r=Math.random();
+   let t=r<.12?"water":r<.23?"forest":r<.31?"mountain":r<.43?"desert":r<.49?"ice":"plains";
+   map[y][x]={terrain:t,building:null};
+  }
+ }
+ // Aloitusalue
+ map[6][5].terrain="plains";
+ map[6][6].terrain="forest";
+ cities.push({id:nextId++,x:5,y:6,name:"Nova Prime",level:1,solar:0,farm:0,factory:0,production:null,progress:0});
+ units.push({id:nextId++,x:6,y:6,type:"founder",moves:2,acted:false});
+// Alien-kylien nimet
+let alienNames = [
+ "Zorak","Vex","Nol","Krax","Thal","Zrix","Krox",
+ "Vek","Xal","Trak","Bhax","Zek","Zul","Shor",
+ "Thrix","Zhal","Nhor","Xylar","Dhox","Vok","Nix",
+ "Grel","Rax","Mux","Blok","Zor","Zor-Nol","Krax-Vek",
+ "New Zorak","Zrix-Thal","Vex-Prime","Mount Krox",
+ "Nhor-Xal","New Thal","Dhox-Mux","Fort Vek",
+ "Zhal-Rax","Neo-Shor"
+];
+
+// Alien-kylät
+for(let i=0;i<7;i++){
+ let x,y;
+
+ do{
+  x=rand(1,W-2);
+  y=rand(1,H-2);
+ }
+ while(
+  get(x,y).terrain==="water"||
+  cityAt(x,y)||
+  alienAt(x,y)
+ );
+
+ let randomIndex=rand(0,alienNames.length-1);
+ let randomName=alienNames.splice(randomIndex,1)[0];
+
+ aliens.push({
+  id:nextId++,
+  x,y,
+  name:randomName,
+  population:rand(1,5),
+  hostile:false
+ });
+}
+ render();
+ update();
+ log("Retkikunta saapui uudelle planeetalle.");
+}
+
+function render(){
+ const el=document.getElementById("map");
+ el.innerHTML="";
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  let t=get(x,y);
+  let d=document.createElement("div");
+  d.className="tile "+t.terrain;
+  if(selected&&selected.x===x&&selected.y===y)d.classList.add("selected");
+  let c=cityAt(x,y),u=unitAt(x,y),a=alienAt(x,y);
+  let icon=terrain[t.terrain].icon;
+  if(t.building==="solar")icon="☀️";
+  if(t.building==="farm")icon="🌾";
+  if(t.building==="mine")icon="⛏️";
+  if(c)icon="🏙️";
+  if(a)icon=a.hostile?"👾":"👽";
+  if(u){
+   icon=u.type==="founder"?"🏕️":u.type==="builder"?"🔨":"🪖";
+  }
+  d.textContent=icon;
+  if(c){
+   let s=document.createElement("span");
+   s.className="small";
+   s.textContent=c.level;
+   d.appendChild(s);
+  }
+  d.onclick=()=>select(x,y);
+  el.appendChild(d);
+ }
+}
+
+function update(){
+ document.getElementById("food").textContent=food;
+ document.getElementById("metal").textContent=metal;
+ document.getElementById("energy").textContent=energy;
+ document.getElementById("turn").textContent=turn;
+}
+
+function select(x,y){
+ selected={x,y};
+ render();
+ let c=cityAt(x,y),u=unitAt(x,y),a=alienAt(x,y);
+ let t=get(x,y);
+ let d=document.getElementById("details");
+ d.innerHTML="<div class='info'>"+terrain[t.terrain].icon+" "+terrain[t.terrain].name+"</div>";
+ if(c)showCity(c,d);
+ else if(u)showUnit(u,d);
+ else if(a)showAlien(a,d);
+ else showTile(x,y,d);
+}
+
+function showCity(c,d){
+ d.innerHTML+=`<h3>🏙️ ${c.name}</h3>
+ <div class="info">
+ Kaupungintaso: ${c.level}<br>
+ ☀️ Aurinkopaneelit: ${c.solar}<br>
+ 🌾 Maatilat: ${c.farm}<br>
+ 🏭 Tehtaat: ${c.factory}<br>
+ Tuotanto: ${c.production||"Ei mitään"}<br>
+ Edistyminen: ${c.progress}
+ </div>
+ <button onclick="buildCity(${c.id},'solar')">☀️ Aurinkopaneeli (10🔩)</button>
+ <button onclick="buildCity(${c.id},'farm')">🌾 Maatila (8🔩)</button>
+ <button onclick="buildCity(${c.id},'factory')">🏭 Tehdas (15🔩)</button>
+ <button onclick="upgradeCity(${c.id})">⬆️ Päivitä kaupunki (20🔩, 10⚡)</button>
+ <hr><h3>🏗️ Tuota joukkoja</h3>
+ <button onclick="produce(${c.id},'founder')">🏕️ Kaupunginperustaja (15🔩)</button>
+ <button onclick="produce(${c.id},'builder')">🔨 Rakentaja (10🔩)</button>
+ <button onclick="produce(${c.id},'soldier')">🪖 Sotilas (15🔩)</button>`;
+}
+
+function showUnit(u,d){
+ let names={founder:"Kaupunginperustaja",builder:"Rakentaja",soldier:"Sotilas"};
+ d.innerHTML+=`<h3> ${u.type==="soldier"?"🪖":u.type==="builder"?"🔨":"🏕️"} ${names[u.type]}</h3>
+ <div class="info">Liikkuminen: ${u.moves}<br>Toiminto tehty: ${u.acted?"Kyllä":"Ei"}</div>`;
+ if(u.type==="founder"){
+  d.innerHTML+=`<button onclick="foundCity(${u.id})">🏙️ Perusta kaupunki</button>`;
+ }
+ if(u.type==="builder"){
+  d.innerHTML+=`<button onclick="builderAction(${u.id},'solar')">☀️ Rakenna aurinkopaneeli (8🔩)</button>
+  <button onclick="builderAction(${u.id},'farm')">🌾 Rakenna maatila (6🔩)</button>
+  <button onclick="builderAction(${u.id},'mine')">⛏️ Rakenna kaivos (8🔩)</button>`;
+ }
+ if(u.type==="soldier"){
+  d.innerHTML+=`<button onclick="attack(${u.id})">⚔️ Hyökkää viereiseen alien-kylään</button>`;
+ }
+ d.innerHTML+=`<button onclick="moveUnit(${u.id})">➡️ Liiku valittuun viereiseen ruutuun</button>`;
+}
+
+function showAlien(a,d){
+ d.innerHTML+=`<h3>👽 Alien-kylä: ${a.name}</h3>
+ <div class="info">Väestö: ${a.population}<br>Suhteet: ${a.hostile?"Vihamielinen":"Neutraali"}</div>
+ <button onclick="trade(${a.id})">🤝 Käy kauppaa</button>
+ <button onclick="declareWar(${a.id})">⚔️ Julista sota</button>
+ <p>Vallatakseen kylän tarvitset sotilaan ja voitettava taistelun.</p>`;
+}
+
+function showTile(x,y,d){
+ d.innerHTML+=`<h3>Maastoruutu</h3><p>Valitse yksikkö ja sitten tämä ruutu liikkuaksesi.</p>`;
+}
+
+function buildCity(id,type){
+ let c=cities.find(c=>c.id===id);
+ let costs={solar:10,farm:8,factory:15};
+ if(metal<costs[type])return alert("Ei tarpeeksi metallia!");
+ if(type==="solar"&&energy<0)return;
+ metal-=costs[type];
+ c[type]++;
+ log(c.name+" rakensi rakennuksen: "+type);
+ update();select(c.x,c.y);
+}
+
+function upgradeCity(id){
+ let c=cities.find(c=>c.id===id);
+ if(metal<20||energy<10)return alert("Tarvitset 20 metallia ja 10 energiaa!");
+ metal-=20;energy-=10;c.level++;
+ log(c.name+" päivitettiin tasolle "+c.level);
+ update();select(c.x,c.y);
+}
+
+function produce(id,type){
+ let c=cities.find(c=>c.id===id);
+ let costs={founder:15,builder:10,soldier:15};
+ if(metal<costs[type])return alert("Ei tarpeeksi metallia!");
+ if(c.production)return alert("Kaupunki tuottaa jo yksikköä!");
+ metal-=costs[type];
+ c.production=type;c.progress=0;
+ log(c.name+" aloitti tuotannon: "+type);
+ update();select(c.x,c.y);
+}
+
+function foundCity(id){
+ let u=units.find(u=>u.id===id);
+ if(cityAt(u.x,u.y))return alert("Tässä on jo kaupunki!");
+ let name=prompt("Anna kaupungille nimi:","Uusi siirtokunta");
+ if(name===null)return;
+ cities.push({id:nextId++,x:u.x,y:u.y,name:name||"Siirtokunta",level:1,solar:0,farm:0,factory:0,production:null,progress:0});
+ units=units.filter(v=>v.id!==id);
+ log("Perustit kaupungin: "+name);
+ render();update();select(u.x,u.y);
+}
+
+function builderAction(id,type){
+ let u=units.find(u=>u.id===id);
+ if(u.acted)return alert("Rakentaja on jo käyttänyt toimintonsa!");
+ if(get(u.x,u.y).building)return alert("Tässä on jo rakennus!");
+ let cost={solar:8,farm:6,mine:8}[type];
+ if(metal<cost)return alert("Ei tarpeeksi metallia!");
+ metal-=cost;
+ get(u.x,u.y).building=type;
+ u.acted=true;
+ log("Rakentaja rakensi: "+type);
+ update();render();select(u.x,u.y);
+}
+
+function moveUnit(id){
+ let u=units.find(u=>u.id===id);
+ if(u.acted||u.moves<=0)return alert("Yksikkö ei voi enää liikkua!");
+ let x=prompt("Uusi X-koordinaatti (0-"+(W-1)+"):",u.x);
+ if(x===null)return;
+ let y=prompt("Uusi Y-koordinaatti (0-"+(H-1)+"):",u.y);
+ if(y===null)return;
+ x=Number(x);y=Number(y);
+ if(!Number.isInteger(x)||!Number.isInteger(y)||x<0||x>=W||y<0||y>=H)return alert("Virheelliset koordinaatit!");
+ if(Math.abs(x-u.x)+Math.abs(y-u.y)!==1)return alert("Voit liikkua vain viereiseen ruutuun!");
+ if(get(x,y).terrain==="water"||unitAt(x,y)||cityAt(x,y))return alert("Ruutuun ei voi siirtyä!");
+ if(alienAt(x,y)&&u.type!=="soldier")return alert("Alien-kylän ruutuun ei voi mennä!");
+ u.x=x;u.y=y;u.moves--;
+ if(u.moves===0)u.acted=true;
+ log("Yksikkö liikkui.");
+ render();select(x,y);
+}
+
+function adjacent(u,a){
+ return Math.abs(u.x-a.x)+Math.abs(u.y-a.y)===1;
+}
+
+function attack(id){
+ let u=units.find(u=>u.id===id);
+ if(u.acted)return alert("Sotilas on jo toiminut!");
+ let a=aliens.find(a=>adjacent(u,a));
+ if(!a)return alert("Lähellä ei ole alien-kylää!");
+ a.population--;
+ u.acted=true;
+ if(a.population<=0){
+  aliens=aliens.filter(v=>v.id!==a.id);
+  metal+=12;food+=8;
+  log("Valloitettiin alien-kylä "+a.name+"!");
+ }else log("Hyökkäsit kylään "+a.name+"!");
+ update();render();select(u.x,u.y);
+}
+
+function trade(id){
+ let a=aliens.find(a=>a.id===id);
+ if(a.hostile)return alert("Vihamieliset alienit eivät käy kauppaa!");
+ if(energy<5)return alert("Tarvitset 5 energiaa kauppaan!");
+ energy-=5;metal+=10;food+=5;
+ log("Kävit kauppaa "+a.name+" kanssa: +10 metallia, +5 ruokaa.");
+ update();select(a.x,a.y);
+}
+
+function declareWar(id){
+ let a=aliens.find(a=>a.id===id);
+ a.hostile=true;
+ log("Sota julistettu alien-kylälle "+a.name+"!");
+ render();select(a.x,a.y);
+}
+
+function endTurn(){
+ turn++;
+ let f=0,m=0,e=0;
+ cities.forEach(c=>{
+  f+=2+c.farm*3;
+  m+=2+c.factory*3;
+  e+=2+c.solar*5+c.level;
+  if(c.production){
+   c.progress+=2+c.level+c.factory;
+   if(c.progress>=5){
+    let type=c.production;
+    let spots=[[0,1],[1,0],[0,-1],[-1,0]];
+    let placed=false;
+    for(let [dx,dy] of spots){
+     let x=c.x+dx,y=c.y+dy;
+     if(x>=0&&y>=0&&x<W&&y<H&&!unitAt(x,y)&&!cityAt(x,y)&&get(x,y).terrain!=="water"&&!alienAt(x,y)){
+      units.push({id:nextId++,x,y,type,moves:2,acted:false});
+      placed=true;break;
+     }
+    }
+    if(placed){
+     log(c.name+" valmisti yksikön: "+type);
+     c.production=null;c.progress=0;
+    }else c.progress=4;
+   }
+  }
+ });
+ map.forEach(row=>row.forEach(t=>{
+  if(t.building==="solar")e+=3;
+  if(t.building==="farm")f+=2;
+  if(t.building==="mine")m+=2;
+ }));
+ food+=f;metal+=m;energy+=e;
+ units.forEach(u=>{u.moves=2;u.acted=false});
+ aliens.forEach(a=>{
+  if(a.hostile){
+   let s=units.find(u=>u.type==="soldier"&&adjacent(u,a));
+   if(s){
+    s.acted=true;
+    a.population--;
+    if(a.population<=0){
+     aliens=aliens.filter(v=>v.id!==a.id);
+     metal+=8;
+     log("Puolustit alueen ja voitit alien-kylän!");
+    }else log("Alienit hyökkäsivät sotilaasi vastaan!");
+   }
+  }
+ });
+ if(food>=10)food-=10;
+ else{
+  food=0;
+  log("Ruokapula! Kaupungit eivät kasva normaalisti.");
+ }
+ log("Vuoro päättyi. Planeetan tuotanto: +"+f+" ruokaa, +"+m+" metallia, +"+e+" energiaa.");
+ update();render();
+ if(selected)select(selected.x,selected.y);
+}
+
+init();
+</script>
+</body>
+</html>

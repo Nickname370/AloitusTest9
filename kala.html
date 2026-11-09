@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalastuspeli</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom, #74b9ff, #0984e3);
+            margin: 0;
+            padding: 0px 5px 5px 5px;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+			margin-top: -1px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+		h1 a {
+			color: white;
+		}
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        /* YLÄSTATISTIIKKA */
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #dfe6e9;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            flex-wrap: wrap;
+        }
+
+        /* VASEN + OIKEA */
+        .game-layout {
+            display: flex;
+            gap: 25px;
+            align-items: flex-start;
+        }
+
+        /* KALASTUS */
+        .fishing-area {
+            flex: 1;
+            min-width: 0;
+            text-align: center;
+        }
+
+        .lake-area {
+            height: 300px;
+            background: linear-gradient(to bottom, #74b9ff, #2980b9);
+            border-radius: 10px;
+            position: relative;
+            margin-bottom: 20px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 3px solid #0984e3;
+        }
+
+        .bobber {
+            width: 24px;
+            height: 24px;
+            background: radial-gradient(
+                circle at 30% 30%,
+                #ff4757,
+                #ff6b81
+            );
+            border-radius: 50%;
+            position: absolute;
+            transition: transform 0.1s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            display: none;
+        }
+
+        .bobber.fishing {
+            display: block;
+            animation: float 2s infinite ease-in-out;
+        }
+
+        .bobber.bite {
+            animation: splash 0.2s infinite alternate;
+            background: #ffa502;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+
+        @keyframes splash {
+            0% {
+                transform: translateY(0) scale(1);
+            }
+
+            100% {
+                transform: translateY(12px) scale(0.9);
+            }
+        }
+
+        .status-text {
+            font-size: 1.2rem;
+            font-weight: bold;
+            min-height: 30px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .btn {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+            transition: all 0.2s ease;
+            width: 80%;
+        }
+
+        .btn:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn.reel {
+            background-color: #e67e22;
+        }
+
+        .btn.reel:hover {
+            background-color: #d35400;
+        }
+
+        .log {
+            font-size: 0.9rem;
+            color: #636e72;
+            margin-top: 15px;
+            font-style: italic;
+        }
+
+        /* KAUPPA */
+        .shop {
+            width: 360px;
+            flex-shrink: 0;
+            border-left: 2px dashed #b2bec3;
+            padding-left: 20px;
+        }
+
+        .shop h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+
+        .shop-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: #f1f2f6;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+
+        .shop-item span {
+            line-height: 1.3;
+        }
+
+        .shop-btn {
+            background: #0984e3;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+
+        .shop-btn:hover:not(:disabled) {
+            background: #076bb5;
+        }
+
+        .shop-btn:disabled {
+            background: #b2bec3;
+            cursor: not-allowed;
+        }
+
+        /* PUHELIN / PIENI NÄYTTÖ */
+        @media (max-width: 750px) {
+            .game-layout {
+                flex-direction: column;
+            }
+
+            .fishing-area {
+                width: 100%;
+            }
+
+            .shop {
+                width: 100%;
+                border-left: none;
+                border-top: 2px dashed #b2bec3;
+                padding-left: 0;
+                padding-top: 20px;
+            }
+
+            .lake-area {
+                height: 220px;
+            }
+        }
+
+		 #olio-nappi {
+			position: absolute; 
+			top: 68px; 
+			right: 415px; 
+			padding: 5px 5px; 
+			border-radius: 12px; 
+			font-size: 14px; 
+			cursor: pointer;
+			transition: all 0.3s ease; 
+  }
+
+
+  #olio-nappi:hover {
+    background-color: #e0e0e0; /* Väri muuttuu tummemmaksi */
+    transform: scale(1.05);    /* Nappi suurenee aavistuksen */
+  }
+    </style>
+</head>
+
+<body>
+
+<a href="valikko3.html">
+  <button style="position:absolute; top:20px; right:20px; padding:10px 14px; font-size:16px; cursor:pointer;">⬅️ Takaisin</button>
+</a>
+
+    <h1><a href="kala.html">Kalastuspeli</a></h1>
+
+    <div class="game-container">
+
+        <!-- TILASTOT -->
+        <div class="stats">
+            <div>
+                Rahaa:
+                <span id="money">0</span> €
+            </div>
+
+            <div>
+                Kaloja:
+                <span id="fish-count">0</span> kpl
+            </div>
+
+            <div>
+                Olioita:
+                <span id="creature-count">0</span>
+            </div>
+
+<a href="https://nickname370.github.io/OliodexTest11/oliodex.html" target="_blank" rel="noopener noreferrer">
+  <button id="olio-nappi">Mikä on Olio?</button>
+</a>
+
+            <div>
+                Syötti:
+                <span id="current-bait">Tavallinen</span>
+            </div>
+        </div>
+
+        <!-- KALASTUS + KAUPPA -->
+        <div class="game-layout">
+
+            <!-- VASEN PUOLI: KALASTUS -->
+            <div class="fishing-area">
+
+                <div class="lake-area">
+                    <div id="bobber" class="bobber"></div>
+
+                    <div
+                        id="water-text"
+                        style="
+                            color: rgba(255,255,255,0.4);
+                            font-weight: bold;
+                            font-size: 13rem;
+                            user-select: none;
+                        "
+                    >
+                        VESI
+                    </div>
+                </div>
+
+                <div id="status" class="status-text">
+                    Heitä siima veteen aloittaaksesi!
+                </div>
+
+                <button id="action-btn" class="btn">
+                    Heitä
+                </button>
+
+                <div class="log" id="log-text">
+                    Valmiina kalastukseen...
+                </div>
+
+            </div>
+
+            <!-- OIKEA PUOLI: KAUPPA -->
+            <div class="shop">
+
+                <h3>Kauppa</h3>
+
+                <div class="shop-item">
+                    <span>
+                        Hyvä syötti
+                        (+25% nopeampi tärppi)
+                    </span>
+
+                    <button
+                        id="buy-bait-1"
+                        class="shop-btn"
+                        onclick="buyBait(1.25, 15, 'Hyvä syötti')"
+                    >
+                        Osta (15€)
+                    </button>
+                </div>
+
+                <div class="shop-item">
+                    <span>
+                        Todella hyvä syötti
+                        (+60% nopeampi tärppi)
+                    </span>
+
+                    <button
+                        id="buy-bait-2"
+                        class="shop-btn"
+                        onclick="buyBait(1.6, 40, 'Todella hyvä syötti')"
+                    >
+                        Osta (40€)
+                    </button>
+                </div>
+
+                <div
+                    class="shop-item"
+                    id="shop-rod-item-1"
+                >
+                    <span>
+                        Hyvä onki
+                        (Saat kaloista 2x enemmän rahaa!)
+                    </span>
+
+                    <button
+                        id="buy-rod-1"
+                        class="shop-btn"
+                        onclick="buyRod(2.0, 75, 'Hyvä onki')"
+                    >
+                        Osta (75€)
+                    </button>
+                </div>
+
+                <div
+                    class="shop-item"
+                    id="shop-rod-item-2"
+                >
+                    <span>
+                        Todella hyvä onki
+                        (Saat kaloista 3x enemmän rahaa!)
+                    </span>
+
+                    <button
+                        id="buy-rod-2"
+                        class="shop-btn"
+                        onclick="buyRod(3.0, 250, 'Todella hyvä onki')"
+                    >
+                        Osta (250€)
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <script>
+
+        /* =========================
+           PELITILAN MUUTTUJAT
+        ========================= */
+
+        let money = 0;
+        let fishCount = 0;
+        let creatureCount = 0;
+
+        let gameState = "idle";
+
+        let baitMultiplier = 1.0;
+        let rodMultiplier = 1.0;
+
+        let biteTimeout;
+        let biteWindowTimeout;
+
+
+        /* =========================
+           KALAT
+        ========================= */
+
+        const extendedFishTypes = [
+
+            {
+                name: "Särki",
+                minPrice: 2,
+                maxPrice: 5
+            },
+
+            {
+                name: "Ahven",
+                minPrice: 5,
+                maxPrice: 12
+            },
+
+            {
+                name: "Piraija",
+                minPrice: 12,
+                maxPrice: 22
+            },
+
+            {
+                name: "Pallokala",
+                minPrice: 20,
+                maxPrice: 35
+            },
+
+            {
+                name: "Kuha",
+                minPrice: 30,
+                maxPrice: 50
+            },
+
+            {
+                name: "Hauki",
+                minPrice: 45,
+                maxPrice: 75
+            },
+
+            {
+                name: "Hai",
+                minPrice: 90,
+                maxPrice: 150
+            },
+
+            {
+                name: "Kultakala",
+                minPrice: 180,
+                maxPrice: 300
+            }
+
+        ];
+
+
+        /* =========================
+           OLIOT
+        ========================= */
+
+        const creatures = [
+
+            {
+                name: "Kuplanen",
+                desc: "Kuplanen on vesityypin Olio. Se on myös yksi Viherlaakson aloitusolioista."
+            },
+
+            {
+                name: "Lörppö",
+                desc: "Pehmeä ja löysä vesityypin Olio, joka ei pysy koskaan täysin samassa muodossa."
+            },
+
+            {
+                name: "Pikkulohi",
+                desc: "Pikkulohi on vesi- ja lohikäärmetypin Olio, ja se asuu Kuusivaaran joissa ja järvissä."
+            }
+
+        ];
+
+
+        /* =========================
+           DOM-ELEMENTIT
+        ========================= */
+
+        const actionBtn =
+            document.getElementById("action-btn");
+
+        const statusText =
+            document.getElementById("status");
+
+        const logText =
+            document.getElementById("log-text");
+
+        const bobber =
+            document.getElementById("bobber");
+
+        const moneyDisplay =
+            document.getElementById("money");
+
+        const fishDisplay =
+            document.getElementById("fish-count");
+
+        const creatureDisplay =
+            document.getElementById("creature-count");
+
+        const baitDisplay =
+            document.getElementById("current-bait");
+
+
+        /* =========================
+           PAINIKKEEN TOIMINTA
+        ========================= */
+
+        actionBtn.addEventListener("click", () => {
+
+            if (gameState === "idle") {
+
+                startFishing();
+
+            } else if (gameState === "fishing") {
+
+                failFishing(
+                    "Vedit liian aikaisin! Kala säikähti."
+                );
+
+            } else if (gameState === "bite") {
+
+                catchFish();
+
+            }
+
+        });
+
+
+        /* =========================
+           KALASTUKSEN ALOITUS
+        ========================= */
+
+        function startFishing() {
+
+            gameState = "fishing";
+
+            actionBtn.textContent =
+                "Vedä!";
+
+            actionBtn.className =
+                "btn reel";
+
+            statusText.textContent =
+                "Odotetaan kalaa... Pidä silmät auki!";
+
+            logText.textContent =
+                "Koho kelluu vedessä...";
+
+            bobber.className =
+                "bobber fishing";
+
+
+            const baseTime =
+                Math.random() * 5000 + 3000;
+
+            const finalTime =
+                baseTime / baitMultiplier;
+
+
+            biteTimeout = setTimeout(
+                triggerBite,
+                finalTime
+            );
+        }
+
+
+        /* =========================
+           TÄRPPI
+        ========================= */
+
+        function triggerBite() {
+
+            gameState = "bite";
+
+            statusText.textContent =
+                "NYT NYKÄISEE! VEDÄ!";
+
+            logText.textContent =
+                "Koho painuu veden alle!";
+
+            bobber.className =
+                "bobber fishing bite";
+
+
+            biteWindowTimeout = setTimeout(() => {
+
+                failFishing(
+                    "Kala pääsi karkuun! Olit liian hidas."
+                );
+
+            }, 1200);
+        }
+
+
+        /* =========================
+           KALAN / OLION SAAMINEN
+        ========================= */
+
+function catchFish() {
+
+    clearTimeout(biteWindowTimeout);
+
+    /*
+        5 % mahdollisuus saada Olio
+    */
+
+    const mainRand =
+        Math.random();
+
+    if (mainRand < 0.05) {
+
+        const randomCreature =
+            creatures[
+                Math.floor(
+                    Math.random() * creatures.length
+                )
+            ];
+
+        creatureCount++;
+
+        creatureDisplay.textContent =
+            creatureCount;
+
+        statusText.textContent =
+            `Mukana tuli Olio: ${randomCreature.name}!`;
+
+        logText.textContent =
+            `${randomCreature.desc} ` +
+            `Olioita ei voi myydä, mutta niitä voi kaapata Kaappauspalloilla! ` +
+            `(Olioita löydetty: ${creatureCount})`;
+
+        resetGame();
+
+        return;
+    }
+
+
+            /*
+                Normaali kala
+            */
+
+            const rand =
+                Math.random();
+
+            let selectedFish;
+
+
+            if (rand < 0.25) {
+
+                selectedFish =
+                    extendedFishTypes[0];
+
+            } else if (rand < 0.50) {
+
+                selectedFish =
+                    extendedFishTypes[1];
+
+            } else if (rand < 0.68) {
+
+                selectedFish =
+                    extendedFishTypes[2];
+
+            } else if (rand < 0.82) {
+
+                selectedFish =
+                    extendedFishTypes[3];
+
+            } else if (rand < 0.91) {
+
+                selectedFish =
+                    extendedFishTypes[4];
+
+            } else if (rand < 0.96) {
+
+                selectedFish =
+                    extendedFishTypes[5];
+
+            } else if (rand < 0.99) {
+
+                selectedFish =
+                    extendedFishTypes[6];
+
+            } else {
+
+                selectedFish =
+                    extendedFishTypes[7];
+
+            }
+
+
+            const basePrice =
+                Math.floor(
+                    Math.random() *
+                    (
+                        selectedFish.maxPrice -
+                        selectedFish.minPrice +
+                        1
+                    )
+                ) +
+                selectedFish.minPrice;
+
+
+            const finalPrice =
+                Math.floor(
+                    basePrice * rodMultiplier
+                );
+
+
+            money += finalPrice;
+            fishCount++;
+
+
+            statusText.textContent =
+                `Sait kalan: ${selectedFish.name}!`;
+
+            logText.textContent =
+                `Myit sen heti satamassa hintaan ${finalPrice} €!` +
+                (
+                    rodMultiplier > 1
+                        ? " (Sisältää onkibonuksen!)"
+                        : ""
+                );
+
+
+            resetGame();
+        }
+
+
+        /* =========================
+           EPÄONNISTUMINEN
+        ========================= */
+
+        function failFishing(message) {
+
+            clearTimeout(biteTimeout);
+            clearTimeout(biteWindowTimeout);
+
+            statusText.textContent =
+                "Karkuun pääsi...";
+
+            logText.textContent =
+                message;
+
+            resetGame();
+        }
+
+
+        /* =========================
+           RESET
+        ========================= */
+
+        function resetGame() {
+
+            gameState = "idle";
+
+            actionBtn.textContent =
+                "Heitä";
+
+            actionBtn.className =
+                "btn";
+
+            bobber.className =
+                "bobber";
+
+            updateUI();
+        }
+
+
+        /* =========================
+           SYÖTIT
+        ========================= */
+
+        function buyBait(
+            multiplier,
+            cost,
+            baitName
+        ) {
+
+            if (money >= cost) {
+
+                money -= cost;
+
+                baitMultiplier =
+                    multiplier;
+
+                baitDisplay.textContent =
+                    baitName;
+
+                logText.textContent =
+                    `Ostit varusteen: ${baitName}! ` +
+                    `Kalat tärppäävät nyt nopeammin.`;
+
+                updateUI();
+            }
+        }
+
+
+        /* =========================
+           ONGET
+        ========================= */
+
+        function buyRod(
+            multiplier,
+            cost,
+            rodName
+        ) {
+
+            if (
+                money < cost ||
+                rodMultiplier >= multiplier
+            ) {
+                return;
+            }
+
+
+            money -= cost;
+
+            rodMultiplier =
+                multiplier;
+
+
+            logText.textContent =
+                `Ostit varusteen: ${rodName}! ` +
+                `Saat nyt kaloista ${multiplier}x hinnan!`;
+
+
+            const rodItem1 =
+                document.getElementById(
+                    "shop-rod-item-1"
+                );
+
+            const rodItem2 =
+                document.getElementById(
+                    "shop-rod-item-2"
+                );
+
+
+            if (multiplier >= 3.0) {
+
+                if (rodItem1) {
+                    rodItem1.style.display =
+                        "none";
+                }
+
+
+                if (rodItem2) {
+
+                    rodItem2.innerHTML =
+                        `<span>
+                            <strong>${rodName}</strong>
+                            käytössä! (3x rahaa saaliista)
+                        </span>`;
+                }
+
+            } else {
+
+                if (rodItem1) {
+
+                    rodItem1.innerHTML =
+                        `<span>
+                            <strong>${rodName}</strong>
+                            käytössä! (2x rahaa saaliista)
+                        </span>`;
+                }
+            }
+
+
+            updateUI();
+        }
+
+
+        /* =========================
+           KÄYTTÖLIITTYMÄ
+        ========================= */
+
+        function updateUI() {
+
+            moneyDisplay.textContent =
+                money;
+
+            fishDisplay.textContent =
+                fishCount;
+
+            creatureDisplay.textContent =
+                creatureCount;
+
+
+            document.getElementById(
+                "buy-bait-1"
+            ).disabled =
+                money < 15 ||
+                baitMultiplier >= 1.25;
+
+
+            document.getElementById(
+                "buy-bait-2"
+            ).disabled =
+                money < 40 ||
+                baitMultiplier >= 1.6;
+
+
+            const rodBtn1 =
+                document.getElementById(
+                    "buy-rod-1"
+                );
+
+            if (rodBtn1) {
+
+                rodBtn1.disabled =
+                    money < 75 ||
+                    rodMultiplier >= 2.0;
+            }
+
+
+            const rodBtn2 =
+                document.getElementById(
+                    "buy-rod-2"
+                );
+
+            if (rodBtn2) {
+
+                rodBtn2.disabled =
+                    money < 250 ||
+                    rodMultiplier >= 3.0;
+            }
+        }
+
+
+        /* =========================
+           ALOITUS
+        ========================= */
+
+        updateUI();
+
+    </script>
+
+</body>
+</html>

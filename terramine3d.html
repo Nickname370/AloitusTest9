@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terramine 3D</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+  background: #87ceeb;
+}
+
+canvas { display: block; }
+
+#ui {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  max-width: calc(100vw - 20px);
+  padding: 5px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.92);
+  z-index: 2;
+}
+
+#inventory {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  max-width: 540px;
+}
+
+#inventory button, #start {
+  cursor: pointer;
+  padding: 7px 9px;
+  border: 1px solid #aaa;
+  border-radius: 5px;
+  background: white;
+}
+
+#inventory button.selected {
+  background: #cce4ff;
+  border: 2px solid #1769aa;
+  font-weight: bold;
+}
+
+#back {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 3;
+  padding: 10px;
+  cursor: pointer;
+}
+
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  color: white;
+  font-size: 27px;
+  font-weight: bold;
+  text-shadow: 1px 1px 3px black;
+  pointer-events: none;
+}
+
+#help {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  background: rgba(0,0,0,.65);
+  padding: 9px 13px;
+  border-radius: 7px;
+  text-align: center;
+  width: max-content;
+  max-width: 95vw;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+#startScreen {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 5;
+}
+
+#startBox {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 90%;
+}
+
+#status {
+  margin-top: 7px;
+  font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+  <strong>⛏️ Terramine 3D</strong>
+  <div style="font-size:12px;margin-top:5px">
+	WASD: Liiku | Hiiri: Katso Ympärille<br>
+	Vasen: tuhoa | Oikea: Aseta<br>
+	Välilyönti: Hyppy / Hyökkäys | 1–9: Valitse Palikka | 0: Vaihda Palettia
+  </div>
+
+<div id="paletteTitle">Palikkapaletti 1 (1–9)</div>
+<div id="inventory"></div>
+  <div id="status">Valittu: Maa</div>
+</div>
+
+<div id="crosshair">+</div>
+
+<div id="help">
+  Klikkaa peliä aloittaaksesi • Esc vapauttaa hiiren
+</div>
+
+<div id="startScreen">
+  <div id="startBox">
+    <h1>⛏️ Terramine 3D</h1>
+    <p>Rakenna oma maailmasi kolmiulotteisilla palikoilla!</p>
+    <button id="start">▶ Aloita peli</button>
+	<a href="valikko3.html">
+  <button id="back">⬅️ Takaisin</button>
+</a>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 35, 100);
+
+const camera = new THREE.PerspectiveCamera(
+  75, window.innerWidth / window.innerHeight, 0.1, 180
+);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x665544, 2));
+
+const sun = new THREE.DirectionalLight(0xffffff, 2);
+sun.position.set(30, 50, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+scene.add(sun);
+
+// Palikoiden värit
+const colors = {
+  1: 0x80512c,
+  2: 0x29b545,
+  3: 0x888888,
+  4: 0x967044,
+  5: 0x164bce,
+  7: 0x126b24,
+  8: 0xff4a00,
+  9: 0x202020,
+  10: 0xffffff,
+  11: 0xffd700,
+12: 0xffffff, // Valkoinen valokuutio
+  13: 0x3a1d5d, 
+  14: 0x404040, 
+  15: 0x654321, 
+  16: 0xe3c19d,
+  17: 0xcceeff, 
+  18: 0xff69b4 
+};
+
+const names = {
+  1: "Maa", 2: "Ruoho", 3: "Kivi",
+  4: "Puu", 5: "Vesi", 6: "Hirviömuna",
+  7: "Lehti", 8: "Laava", 9: "Laavakivi",
+  10: "Pilvi",
+  11: "Hiekka",
+12: "Valokuutio",
+  13: "Sinikivi", //
+  14: "Syväkivi",
+  15: "Tumma Puu",
+  16: "Polku", // 
+  17: "Lasi",
+  18: "Koralli"     //
+};
+
+
+const materials = {};
+
+for (const id in colors) {
+  const blockId = Number(id);
+
+  if (blockId === 12) {
+    materials[id] = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xffffff,
+      emissiveIntensity: 1.5
+    });
+  } else if (blockId === 5 || blockId === 17) {
+    materials[id] = new THREE.MeshStandardMaterial({
+      color: colors[id],
+      transparent: true,
+      opacity: blockId === 5 ? 0.5 : 0.3,
+      roughness: 0.1,
+      metalness: 0
+    });
+  } else {
+    materials[id] = new THREE.MeshStandardMaterial({
+      color: colors[id]
+    });
+  }
+}
+
+const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
+const world = new Map();
+const monsters = [];
+
+const WORLD_SIZE = 80;
+const WORLD_HALF = WORLD_SIZE / 2;
+
+let currentBlock = 1;
+let currentPalette = 0; // 0 = palikat 1–9, 1 = palikat 10–18
+let yaw = 0;
+let pitch = 0;
+let isLocked = false;
+let swordTimer = 0;
+let jumpAttackPending = false;
+let wasDescending = false;
+
+const player = {
+  x: 0,
+  y: 2,
+  z: 0,
+  height: 1.7,
+  radius: 0.3,
+  speed: 10,
+  vy: 0,
+  grounded: false
+};
+
+camera.position.set(player.x, player.y, player.z);
+
+function keyOf(x, y, z) {
+  return `${x},${y},${z}`;
+}
+
+function getBlock(x, y, z) {
+  return world.get(keyOf(x, y, z));
+}
+
+function addBlock(x, y, z, id) {
+  x = Math.round(x);
+  y = Math.round(y);
+  z = Math.round(z);
+
+  if (y < -8 || y > 40) return false;
+
+  const key = keyOf(x, y, z);
+  if (world.has(key)) return false;
+
+  const mesh = new THREE.Mesh(blockGeometry, materials[id]);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = id !== 5;
+  mesh.receiveShadow = true;
+  mesh.userData = { x, y, z, id };
+
+  scene.add(mesh);
+  // Valokuution oikea valo
+if (Number(id) === 12) {
+  const light = new THREE.PointLight(0xffffff, 2, 8);
+  light.position.set(0, 0, 0);
+  mesh.add(light);
+}
+  world.set(key, mesh);
+  return true;
+}
+
+function removeBlock(mesh) {
+  if (!mesh || !mesh.userData) return;
+
+  const {x, y, z} = mesh.userData;
+  const key = keyOf(x, y, z);
+
+  if (!world.has(key)) return;
+
+  scene.remove(mesh);
+  world.delete(key);
+}
+
+// Luodaan suuri maailma: ruoho, maa ja kivi
+for (let x = -WORLD_HALF; x < WORLD_HALF; x++) {
+  for (let z = -WORLD_HALF; z < WORLD_HALF; z++) {
+    addBlock(x, -1, z, 2);
+    addBlock(x, -2, z, 1);
+    addBlock(x, -3, z, 1);
+    addBlock(x, -4, z, 3);
+    addBlock(x, -5, z, 3);
+    addBlock(x, -6, z, 9);
+  }
+}
+
+// Satunnaisia puita ja pilviä
+for (let i = 0; i < 65; i++) {
+}
+
+for (let i = 0; i < 30; i++) {
+}
+
+// Pelaajan tähtäys
+const raycaster = new THREE.Raycaster();
+raycaster.far = 7;
+
+function getTarget() {
+  camera.updateMatrixWorld();
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+
+  const meshes = Array.from(world.values());
+  const hits = raycaster.intersectObjects(meshes, false);
+
+  return hits.length ? hits[0] : null;
+}
+
+function canOccupy(x, y, z) {
+  const minX = Math.floor(x - player.radius + 0.5);
+  const maxX = Math.floor(x + player.radius + 0.5);
+  const minY = Math.floor(y - player.height + 0.5);
+  const maxY = Math.floor(y + 0.5);
+  const minZ = Math.floor(z - player.radius + 0.5);
+  const maxZ = Math.floor(z + player.radius + 0.5);
+
+  for (let bx = minX; bx <= maxX; bx++) {
+    for (let by = minY; by <= maxY; by++) {
+      for (let bz = minZ; bz <= maxZ; bz++) {
+        if (getBlock(bx, by, bz)) {
+          const feet = y - player.height;
+          if (y > by - 0.5 && feet < by + 0.5 &&
+              Math.abs(x - bx) < 0.8 &&
+              Math.abs(z - bz) < 0.8) {
+            return false;
+          }
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+function renderPalette() {
+  const inventory = document.getElementById("inventory");
+  inventory.innerHTML = "";
+
+const emojis = {
+  1: "🟫",  // Maa
+  2: "🟩",  // Ruoho (🌱 tai tasainen vihreä neliö)
+  3: "🪨",  // Kivi
+  4: "🪵",  // Lankku (puumateriaali sopii tähän paremmin)
+  5: "🌊",  // Vesi
+  6: "🥚",  // Hirviömuna
+  7: "🌿",  // Lehti
+  8: "🔥",  // Laava
+  9: "⬛",  // Laavakivi
+  10: "☁️", // Pilvi
+  11: "🟨", // Hiekka
+  12: "💎", // Timantti (perinteinen jalokiviemoji)
+  13: "🔵", // Sinikivi (vaihdettu purppurasta siniseen neliöön/ympyrään)
+  14: "🩶", // Syväkivi (tummanharmaa sydän tai neliö, 🔲 toimii myös)
+  15: "🌳", // Puu (vaihdettu lankun tilalta tähän)
+  16: "🧱", // Polku (vaaleanruskea tiili/polkumainen kuvake vanhan oliivin tilalla)
+  17: "🪟", // Lasi (lasiruutu oranssin pallon tilalla)
+  18: "🪸"  // Koralli (oma virallinen koralliemoji violetin pallon tilalla)
+};
+
+
+  const start = currentPalette * 9 + 1;
+
+  for (let id = start; id < start + 9; id++) {
+    const button = document.createElement("button");
+    button.textContent = `${id - start + 1}: ${emojis[id]} ${names[id]}`;
+    button.dataset.id = id;
+
+    if (id === currentBlock) {
+      button.classList.add("selected");
+    }
+
+    button.addEventListener("click", () => setBlock(id));
+    inventory.appendChild(button);
+  }
+
+  document.getElementById("paletteTitle").textContent =
+    `Palikkapaletti ${currentPalette + 1} (${start}–${start + 8})`;
+}
+
+function setBlock(id) {
+  currentBlock = id;
+  renderPalette();
+
+  document.getElementById("status").textContent =
+    "Valittu: " + names[id];
+}
+
+window.setBlock = setBlock;
+renderPalette();
+// Hirviö
+function spawnMonster(x, y, z) {
+  const group = new THREE.Group();
+
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 0.8, 0.8),
+    new THREE.MeshLambertMaterial({ color: 0xf12f35 })
+  );
+  body.position.y = 0.4;
+  body.castShadow = true;
+  group.add(body);
+
+  const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
+
+  for (const ex of [-0.19, 0.19]) {
+    const eye = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.12, 0.06),
+      eyeMaterial
+    );
+    eye.position.set(ex, 0.53, 0.41);
+    group.add(eye);
+  }
+
+  group.position.set(x, y, z);
+  scene.add(group);
+  monsters.push({ group, alive: true, speed: 1.5 + Math.random() });
+}
+
+function attack() {
+  swordTimer = 0.2;
+
+  const forward = new THREE.Vector3(
+    -Math.sin(yaw), 0, -Math.cos(yaw)
+  );
+
+  for (const monster of monsters) {
+    if (!monster.alive) continue;
+
+    const dx = monster.group.position.x - player.x;
+    const dz = monster.group.position.z - player.z;
+    const distance = Math.hypot(dx, dz);
+
+    if (distance < 2.8) {
+      const dot = (dx * forward.x + dz * forward.z) /
+        Math.max(distance, 0.001);
+
+      if (dot > 0.15) {
+        monster.alive = false;
+        scene.remove(monster.group);
+      }
+    }
+  }
+}
+
+const keys = {};
+
+window.addEventListener("keydown", e => {
+  keys[e.key.toLowerCase()] = true;
+
+  if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"]
+      .includes(e.key.toLowerCase())) {
+    e.preventDefault();
+  }
+
+if (e.key === "0") {
+  currentPalette = 1 - currentPalette;
+
+  const firstBlock = currentPalette * 9 + 1;
+
+  // Vaihda automaattisesti uuden paletin ensimmäiseen palikkaan.
+  setBlock(firstBlock);
+}
+
+if (/^[1-9]$/.test(e.key)) {
+  const slot = Number(e.key);
+  const id = currentPalette * 9 + slot;
+
+  setBlock(id);
+}
+});
+
+window.addEventListener("keyup", e => {
+  keys[e.key.toLowerCase()] = false;
+});
+
+// Hiiren lukitus
+document.getElementById("start").addEventListener("click", () => {
+  renderer.domElement.requestPointerLock();
+});
+
+renderer.domElement.addEventListener("click", () => {
+  if (!isLocked) renderer.domElement.requestPointerLock();
+});
+
+document.addEventListener("pointerlockchange", () => {
+  isLocked = document.pointerLockElement === renderer.domElement;
+
+  document.getElementById("startScreen").style.display =
+    isLocked ? "none" : "flex";
+
+  document.getElementById("help").textContent = isLocked
+    ? "Esc: vapauta hiiri"
+    : "Klikkaa peliä aloittaaksesi • Esc vapauttaa hiiren";
+});
+
+document.addEventListener("mousemove", e => {
+  if (!isLocked) return;
+
+  yaw -= e.movementX * 0.002;
+  pitch -= e.movementY * 0.002;
+  pitch = Math.max(-1.5, Math.min(1.5, pitch));
+});
+
+renderer.domElement.addEventListener("contextmenu", e => {
+  e.preventDefault();
+});
+
+renderer.domElement.addEventListener("mousedown", e => {
+  if (!isLocked) return;
+
+  e.preventDefault();
+
+  const hit = getTarget();
+
+// Vasen klikkaus: tuhoa palikka.
+if (e.button === 0 && currentBlock !== 6) {
+  if (hit) removeBlock(hit.object);
+}
+
+// Oikea klikkaus: aseta palikka tai spawnää hirviö.
+if (e.button === 2 && currentBlock === 6) {
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+
+  const spawnX = Math.round(player.x + dir.x * 3);
+  const spawnZ = Math.round(player.z + dir.z * 3);
+
+  spawnMonster(spawnX, -0.5, spawnZ);
+}
+
+// Oikea klikkaus: aseta muut palikat.
+if (e.button === 2 && currentBlock !== 6 && hit) {
+  const p = hit.object.position.clone()
+    .add(hit.face.normal);
+
+  const bx = Math.round(p.x);
+  const by = Math.round(p.y);
+  const bz = Math.round(p.z);
+
+  const insidePlayer =
+    Math.abs(bx - player.x) < 0.8 &&
+    Math.abs(bz - player.z) < 0.8 &&
+    by + 0.5 > player.y - player.height &&
+    by - 0.5 < player.y;
+
+  if (!insidePlayer) {
+    addBlock(bx, by, bz, currentBlock);
+  }
+}
+
+  if (e.button === 2 && currentBlock !== 6 && hit) {
+    const p = hit.object.position.clone().add(hit.face.normal);
+
+    const bx = Math.round(p.x);
+    const by = Math.round(p.y);
+    const bz = Math.round(p.z);
+
+    // Älä aseta palikkaa pelaajan sisälle.
+    const insidePlayer =
+      Math.abs(bx - player.x) < 0.8 &&
+      Math.abs(bz - player.z) < 0.8 &&
+      by + 0.5 > player.y - player.height &&
+      by - 0.5 < player.y;
+
+    if (!insidePlayer) addBlock(bx, by, bz, currentBlock);
+  }
+});
+
+// Pelaajan liike ja yksinkertainen painovoima
+let lastTime = performance.now();
+
+function update(dt) {
+  const forward = new THREE.Vector3(
+    -Math.sin(yaw), 0, -Math.cos(yaw)
+  );
+  const right = new THREE.Vector3(
+    Math.cos(yaw), 0, -Math.sin(yaw)
+  );
+
+  const move = new THREE.Vector3();
+
+  if (keys["w"] || keys["arrowup"]) move.add(forward);
+  if (keys["s"] || keys["arrowdown"]) move.sub(forward);
+  if (keys["d"] || keys["arrowright"]) move.add(right);
+  if (keys["a"] || keys["arrowleft"]) move.sub(right);
+
+  if (move.lengthSq() > 0) {
+    move.normalize().multiplyScalar(player.speed * dt);
+
+    const nx = player.x + move.x;
+    if (canOccupy(nx, player.y, player.z)) player.x = nx;
+
+    const nz = player.z + move.z;
+    if (canOccupy(player.x, player.y, nz)) player.z = nz;
+  }
+
+  player.vy -= 26 * dt;
+  const nextY = player.y + player.vy * dt;
+
+  if (canOccupy(player.x, nextY, player.z)) {
+    player.y = nextY;
+    player.grounded = false;
+  } else {
+    if (player.vy < 0) player.grounded = true;
+    player.vy = 0;
+  }
+
+// Välilyönti aloittaa hypyn ja valmistelee hyökkäyksen.
+if (keys[" "] && player.grounded) {
+  player.vy = 9;
+  player.grounded = false;
+  jumpAttackPending = true;
+  wasDescending = false;
+}
+
+// Tunnista hypyn laskeutumisvaihe.
+if (player.vy < 0 && jumpAttackPending) {
+  wasDescending = true;
+}
+
+// Tee vahinkoa vasta laskeutumisvaiheessa.
+if (wasDescending && jumpAttackPending) {
+  for (const monster of monsters) {
+    if (!monster.alive) continue;
+
+    const dx = player.x - monster.group.position.x;
+    const dz = player.z - monster.group.position.z;
+    const distance = Math.hypot(dx, dz);
+
+    const playerFeet = player.y - player.height;
+    const monsterTop = monster.group.position.y + 0.8;
+
+    // Vihollisen päälle osuminen.
+    if (
+      distance < 0.85 &&
+      playerFeet <= monsterTop + 0.35 &&
+      playerFeet >= monsterTop - 0.8
+    ) {
+      monster.alive = false;
+      scene.remove(monster.group);
+
+      // Pieni pomppu osuman jälkeen.
+      player.vy = 4;
+      player.grounded = false;
+      jumpAttackPending = false;
+      wasDescending = false;
+      break;
+    }
+  }
+}
+
+// Peruuta hyökkäys, kun pelaaja palaa maahan.
+if (player.grounded && wasDescending) {
+  jumpAttackPending = false;
+  wasDescending = false;
+}
+  // Pidä pelaaja kartan sisällä.
+  player.x = THREE.MathUtils.clamp(
+    player.x, -WORLD_HALF + 1, WORLD_HALF - 1
+  );
+  player.z = THREE.MathUtils.clamp(
+    player.z, -WORLD_HALF + 1, WORLD_HALF - 1
+  );
+
+  if (player.y < -12) {
+    player.x = 0;
+    player.y = 2;
+    player.z = 0;
+    player.vy = 0;
+  }
+
+  camera.position.set(player.x, player.y, player.z);
+  camera.rotation.order = "YXZ";
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+
+  swordTimer = Math.max(0, swordTimer - dt);
+
+  // Hirviöt seuraavat pelaajaa.
+  for (const monster of monsters) {
+    if (!monster.alive) continue;
+
+    const g = monster.group;
+    const dx = player.x - g.position.x;
+    const dz = player.z - g.position.z;
+    const distance = Math.hypot(dx, dz);
+
+    if (distance > 0.9 && distance < 30) {
+      g.position.x += dx / distance * monster.speed * dt;
+      g.position.z += dz / distance * monster.speed * dt;
+    }
+  }
+}
+
+function animate(now) {
+  requestAnimationFrame(animate);
+
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+
+  update(dt);
+  renderer.render(scene, camera);
+}
+
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate(performance.now());
+</script>
+</body>
+</html>

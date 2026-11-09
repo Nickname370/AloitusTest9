@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avaruusromun Kerääjä</title>
+    <style>
+        /* Synkkä ja futuristinen avaruusteema */
+        body {
+            background-color: #0b0c10;
+            color: #c5c6c7;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            user-select: none; /* Estää tekstin maalautumisen klikatessa */
+            -webkit-user-select: none;
+        }
+
+        h1 {
+            color: #66fcf1;
+            text-shadow: 0 0 10px #66fcf1;
+            margin-bottom: 5px;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #45f3ff;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        /* Tilastot */
+        .stats-container {
+            background: rgba(31, 40, 51, 0.6);
+            border: 1px solid #45f3ff;
+            border-radius: 10px;
+            padding: 15px;
+            max-width: 400px;
+            margin: 0 auto 30px auto;
+            box-shadow: 0 0 15px rgba(102, 252, 241, 0.2);
+        }
+
+        .stat-line {
+            font-size: 1.2rem;
+            margin: 5px 0;
+        }
+
+        #score {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 5px #fff;
+        }
+
+        /* Klikkausalue / Asteroidi */
+        .click-zone {
+            margin: 40px auto;
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        #asteroid-btn {
+            font-size: 100px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            outline: none;
+            transition: transform 0.05s ease;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Estää puhelimen harmaan välähdyksen napauttaessa */
+            -webkit-tap-highlight-color: transparent; 
+        }
+
+        /* Animaatio klikatessa (pienenee hieman) */
+        #asteroid-btn:active {
+            transform: scale(0.9);
+        }
+
+        /* Kauppatavarat / Päivitykset */
+        .shop-container {
+            max-width: 450px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .shop-item {
+            background: #1f2833;
+            border-left: 5px solid #66fcf1;
+            border-radius: 5px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-align: left;
+        }
+
+        .item-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .item-name {
+            font-weight: bold;
+            color: #fff;
+            font-size: 1.05rem;
+        }
+
+        .item-desc {
+            font-size: 0.8rem;
+            color: #858585;
+        }
+
+        .shop-btn {
+            background-color: #0b0c10;
+            border: 2px solid #66fcf1;
+            color: #66fcf1;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .shop-btn:disabled {
+            border-color: #444;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        .shop-btn:not(:disabled):hover {
+            background-color: #66fcf1;
+            color: #0b0c10;
+            box-shadow: 0 0 10px rgba(102, 252, 241, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+
+
+    <h1>AVARUUSROMUN KERÄÄJÄ</h1>
+    <div class="subtitle">Puhdista kiertorata klikkaamalla asteroidia!</div>
+
+    <!-- Tilastot -->
+    <div class="stats-container">
+        <div class="stat-line">Romua kasassa: <span id="score">0</span> tonnia</div>
+        <div class="stat-line" style="font-size: 1rem; color: #45f3ff;">Automaattinen keräys: <span id="mps">0</span> t/s</div>
+    </div>
+
+    <!-- Pääpainike (Asteroidi) -->
+    <div class="click-zone">
+        <button id="asteroid-btn">☄️</button>
+    </div>
+
+    <!-- Kauppa -->
+    <div class="shop-container">
+        
+        <!-- Päivitys 1 -->
+        <div class="shop-item">
+            <div class="item-info">
+                <span class="item-name">Magneettisäde (Omistat: <span id="count-laser">0</span>)</span>
+                <span class="item-desc">Vetää puoleensa pientä romua. (+0.5 t/s)</span>
+            </div>
+            <button class="shop-btn" id="buy-laser">Hinta: 15 t</button>
+        </div>
+
+        <!-- Päivitys 2 -->
+        <div class="shop-item">
+            <div class="item-info">
+                <span class="item-name">Keräilydrooni (Omistat: <span id="count-drone">0</span>)</span>
+                <span class="item-desc">Automaattinen robottiromuttaja. (+3 t/s)</span>
+            </div>
+            <button class="shop-btn" id="buy-drone">Hinta: 100 t</button>
+        </div>
+
+        <!-- Päivitys 3 -->
+        <div class="shop-item">
+            <div class="item-info">
+                <span class="item-name">Raju lasertehostin (Omistat: <span id="count-click">0</span>)</span>
+                <span class="item-desc">Tuplaa oman klikkauksesi voiman.</span>
+            </div>
+            <button class="shop-btn" id="buy-click">Hinta: 50 t</button>
+					
+		  <a href="valikko3.html">
+    <button style="position:absolute; top:20; left:20px; padding:10px 14px; font-size:16px; cursor:pointer;">⬅️ Takaisin</button>
+        </div>
+
+    </div>
+
+<script>
+    // --- PELIN MUUTTUJAT ---
+    let score = 0;          // Pelaajan romumäärä
+    let clickPower = 1;     // Paljonko saa romua yhdestä klikkauksesta
+    let mps = 0;            // Materiaalia per sekunti (automaattinen keräys)
+
+    // Päivitysten hinnat ja määrät
+    let prices = { laser: 15, drone: 100, click: 50 };
+    let counts = { laser: 0, drone: 0, click: 0 };
+
+    // --- HTML-ELEMENTIT ---
+    const scoreDisplay = document.getElementById('score');
+    const mpsDisplay = document.getElementById('mps');
+    const asteroidBtn = document.getElementById('asteroid-btn');
+
+    const buyLaserBtn = document.getElementById('buy-laser');
+    const buyDroneBtn = document.getElementById('buy-drone');
+    const buyClickBtn = document.getElementById('buy-click');
+
+    const countLaserDisplay = document.getElementById('count-laser');
+    const countDroneDisplay = document.getElementById('count-drone');
+    const countClickDisplay = document.getElementById('count-click');
+
+    // --- TALLENNUS JA LATAUS (LOCALSTORAGE) ---
+
+    // Tallentaa pelitilanteen selaimen muistiin
+    function saveGame() {
+        const gameState = {
+            score: score,
+            clickPower: clickPower,
+            mps: mps,
+            prices: prices,
+            counts: counts
+        };
+        localStorage.setItem('asteroidClickerSave', JSON.stringify(gameState));
+    }
+
+    // Lataa pelitilanteen selaimen muistista, jos sellainen on olemassa
+    function loadGame() {
+        const savedState = localStorage.getItem('asteroidClickerSave');
+        if (savedState) {
+            const gameState = JSON.parse(savedState);
+            
+            // Palautetaan muuttujat
+            score = gameState.score ?? score;
+            clickPower = gameState.clickPower ?? clickPower;
+            mps = gameState.mps ?? mps;
+            prices = gameState.prices ?? prices;
+            counts = gameState.counts ?? counts;
+        }
+    }
+
+    // --- TOIMINNALLISUUDET ---
+
+    // Päivittää lukemat ruudulle ja tarkistaa onko varaa ostaa päivityksiä
+    function updateUI() {
+        // Päivitä tekstit (näytetään kokonaislukuina silmänruoaksi)
+        scoreDisplay.innerText = Math.floor(score);
+        mpsDisplay.innerText = mps.toFixed(1);
+        
+        countLaserDisplay.innerText = counts.laser;
+        countDroneDisplay.innerText = counts.drone;
+        countClickDisplay.innerText = counts.click;
+
+        buyLaserBtn.innerText = `Hinta: ${prices.laser} t`;
+        buyDroneBtn.innerText = `Hinta: ${prices.drone} t`;
+        buyClickBtn.innerText = `Hinta: ${prices.click} t`;
+
+        // Lukitaan tai avataan ostopainikkeet varojen mukaan
+        buyLaserBtn.disabled = score < prices.laser;
+        buyDroneBtn.disabled = score < prices.drone;
+        buyClickBtn.disabled = score < prices.click;
+    }
+
+    // Asteroidin klikkaus (Toimii hiirellä ja kosketuksella)
+    asteroidBtn.addEventListener('click', () => {
+        score += clickPower;
+        updateUI();
+    });
+
+    // PÄIVITYSTEN OSTAMINEN
+
+    // 1. Magneettisäde
+    buyLaserBtn.addEventListener('click', () => {
+        if (score >= prices.laser) {
+            score -= prices.laser;
+            counts.laser++;
+            mps += 0.5;
+            prices.laser = Math.round(prices.laser * 1.15); // Hinta nousee 15%
+            updateUI();
+            saveGame(); // Tallennetaan oston jälkeen
+        }
+    });
+
+    // 2. Keräilydrooni
+    buyDroneBtn.addEventListener('click', () => {
+        if (score >= prices.drone) {
+            score -= prices.drone;
+            counts.drone++;
+            mps += 3;
+            prices.drone = Math.round(prices.drone * 1.15); // Hinta nousee 15%
+            updateUI();
+            saveGame(); // Tallennetaan oston jälkeen
+        }
+    });
+
+    // 3. Klikkaustehostin
+    buyClickBtn.addEventListener('click', () => {
+        if (score >= prices.click) {
+            score -= prices.click;
+            counts.click++;
+            clickPower *= 2; // Tuplaa klikkaustehon
+            prices.click = Math.round(prices.click * 2.5); // Tämän hinta nousee reilusti
+            updateUI();
+            saveGame(); // Tallennetaan oston jälkeen
+        }
+    });
+
+    // Laskuri tallennustiheyden säätelyyn
+    let saveTimer = 0;
+
+    // Ajetaan 10 kertaa sekunnissa (100ms välein), jotta kasvu näyttää tasaiselta
+    setInterval(() => {
+        if (mps > 0) {
+            score += mps / 10;
+            updateUI();
+        }
+
+        // Automaattitallennus 1 sekunnin välein (10 * 100ms)
+        saveTimer++;
+        if (saveTimer >= 10) {
+            saveGame();
+            saveTimer = 0;
+        }
+    }, 100);
+
+    // --- ALUSTUS ---
+    loadGame(); // 1. Haetaan tallennetut tiedot ennen käyttöliittymän piirtoa
+    updateUI(); // 2. Päivitetään UI ladatuilla arvoilla
+</script>
+</body>
+</html>

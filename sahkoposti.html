@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Sähköiskuposti</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f9;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* =========================
+           SIVUPALKKI
+        ========================= */
+
+        .sidebar {
+            width: 250px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            margin-top: 0;
+            font-size: 20px;
+        }
+
+        .sidebar button {
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .sidebar button:hover {
+            background-color: #2980b9;
+        }
+
+        .sidebar p {
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 5px;
+        }
+
+        .sidebar p:hover {
+            background-color: #34495e;
+        }
+
+        /* =========================
+           PÄÄSISÄLTÖ
+        ========================= */
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .main-content h2 {
+            margin-top: 0;
+        }
+
+        .email-list {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 10px;
+        }
+
+        /* =========================
+           VIESTIT
+        ========================= */
+
+        .email-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-radius: 6px;
+        }
+
+        .email-item:last-child {
+            border-bottom: none;
+        }
+
+        .email-item:hover {
+            background-color: #f9f9f9;
+        }
+
+        .email-item .sender {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .email-item .subject {
+            color: #555;
+            margin: 5px 0;
+        }
+
+        .email-item .time {
+            font-size: 12px;
+            color: #999;
+        }
+
+        /* Lukematon viesti */
+
+        .unread {
+            font-weight: bold;
+            background-color: #eef7ff;
+            border-left: 4px solid #3498db;
+        }
+
+        .unread:hover {
+            background-color: #dceeff;
+        }
+
+        /* =========================
+           KIRJOITA VIESTI
+        ========================= */
+
+        .compose-modal {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 400px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border: 1px solid #ccc;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        .modal-header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header span {
+            font-weight: bold;
+        }
+
+        .close-btn {
+            cursor: pointer;
+            font-size: 22px;
+        }
+
+        .modal-body {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .modal-body input,
+        .modal-body textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .modal-body textarea {
+            height: 150px;
+            resize: none;
+        }
+
+        .modal-body button {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .modal-body button:hover {
+            background-color: #27ae60;
+        }
+
+        /* =========================
+           VIESTIN AVAUS
+        ========================= */
+
+        .email-popup-background {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .email-popup {
+            background: white;
+            width: 550px;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .email-popup h2 {
+            margin-top: 0;
+        }
+
+        .email-popup .email-body {
+            margin-top: 20px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+		
+		/* Painikkeiden alarivi */
+
+.email-popup-buttons {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-top: 25px;
+}
+
+.email-popup-buttons button,
+.email-popup-buttons a {
+    margin-top: 0;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    background: #3498db;
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+}
+
+.email-popup-buttons button:hover,
+.email-popup-buttons a:hover {
+    background: #2980b9;
+}
+
+        /* =========================
+           ILMOITUS
+        ========================= */
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+            z-index: 3000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(120%);
+            }
+
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        /* =========================
+           MOBIILI
+        ========================= */
+
+        @media (max-width: 700px) {
+
+            body {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                padding: 10px;
+            }
+
+            .sidebar h2 {
+                display: inline-block;
+                margin-right: 20px;
+            }
+
+            .sidebar button {
+                width: auto;
+                padding: 8px 15px;
+            }
+
+            .compose-modal {
+                width: calc(100% - 20px);
+                right: 10px;
+                bottom: 10px;
+            }
+        }
+		
+		h1 {
+    color: white;     
+    margin: 4px;  
+    font-size: 26px;  
+}
+h1 a {
+    color: white;
+    text-decoration: none;
+}
+
+		h4 {
+    color: white;     
+    margin: 4px;  
+    font-size: 18px;  
+}
+h4 a {
+    color: white;
+    text-decoration: none;
+}
+
+    </style>
+</head>
+
+<body>
+
+    <!-- =========================
+         SIVUPALKKI
+    ========================= -->
+
+    <div class="sidebar">
+
+        <h1><a href="sahkoposti.html">Sähköiskuposti</a></h1>
+
+        <button onclick="toggleCompose(true)">
+            + Kirjoita uusi
+        </button>
+
+        <p>
+            📥 Saapuneet
+            (<span id="inbox-count">1</span>)
+        </p>
+
+        <p>
+            📤 Lähetetyt
+        </p>
+		
+		<h4><a href="valikko3.html">⬅️ Takaisin</a></h4>
+
+    </div>
+
+
+    <!-- =========================
+         PÄÄSISÄLTÖ
+    ========================= -->
+
+    <div class="main-content">
+
+        <h2>Saapuneet viestit</h2>
+
+        <div class="email-list" id="emailList">
+
+            <!-- Ensimmäinen viesti -->
+
+            <div
+                class="email-item unread"
+                onclick="openEmail(emailMessages[0], this)"
+            >
+
+                <div class="sender">
+                    Sähköiskuposti
+                </div>
+
+                <div class="subject">
+                    Mysteeriviesti
+                </div>
+
+                <div class="time">
+                    Tänään, 00:00
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         UUDEN VIESTIN IKKUNA
+    ========================= -->
+
+    <div
+        class="compose-modal"
+        id="composeModal"
+    >
+
+        <div class="modal-header">
+
+            <span>
+                Uusi viesti
+            </span>
+
+            <span
+                class="close-btn"
+                onclick="toggleCompose(false)"
+            >
+                ×
+            </span>
+
+        </div>
+
+
+        <div class="modal-body">
+
+            <input
+                type="email"
+                id="emailTo"
+                placeholder="Vastaanottaja (esim. Prinssi35)"
+            >
+
+            <input
+                type="text"
+                id="emailSubject"
+                placeholder="Aihe"
+            >
+
+            <textarea
+                id="emailMessage"
+                placeholder="Kirjoita viestisi tähän..."
+            ></textarea>
+
+            <button onclick="sendEmail()">
+                Lähetä sähköposti
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <script>
+
+        /* =========================
+           VIESTIT
+        ========================= */
+
+        let inboxCount = 1;
+
+
+        const emailMessages = [
+
+            {
+                sender: "Nickname370",
+                subject: "Muita pelejä",
+                body:
+                    "Hei!\n\n" +
+                    "Haluatko kokeilla muitakin pelejä?\n\n" +
+					"Aloitus sivu josta päsee kaikille muile sivuille.\n" +
+                    "https://nickname370.github.io/AloitusTest5/alku.html\n\n" +
+                    "Terveisin,\nNickname370",
+                read: false
+            }
+
+        ];
+
+
+        /* =========================
+           RANDOM-VIESTIT
+        ========================= */
+
+        const randomEmails = [
+            {
+                sender: "Nickname370",
+                subject: "Sähköiskupostista",
+                body:
+                    "Moi!\n\n" +
+                    "Täällä sähköiskupostissa voi saada sähköpostia\n" +
+                    "(ja sähköiskuja).\n" +
+					"(Ei oikeesti).\n\n" +
+					"Näissä sähköposteissa on kaikenlaista tyhmää.\n" +
+					"Näitä viestejä on noin. 50 erilaista.\n" +
+					"Ne tulevat ihan randomisti.\n" +
+					"Niitä kannattaa lukea.\n\n" +
+					"P.S. Kun klikkaa vasemmassa yläkulmassa olevaa sähköiskupostia niin sähköiskuposti alkaa alusta.\n\n" +
+                    "Nähdään!",
+            },
+		
+		    {
+                sender: "Vuokranantaja",
+                subject: "Asiaa siitä ”homeesta”",
+                body:
+                    "Hei!\n\n" +
+"Hyvät asukkaat,\n\nOlemme saaneet yhteydenottoja koskien useissa asunnoissa havaittuja pintamuutoksia ja epäilyjä mahdollisesta homeesta. Suhtaudumme asukkaidemme terveyteen ja asumisviihtyvyyteen erittäin vakavasti.\n\nHuoltohenkilöstömme on tehnyt kiinteistössä alustavan tarkastuksen. Tämänhetkisten havaintojen mukaan kyseessä näyttäisi olevan vanhan rakennusmateriaalin luonnollinen ikääntyminen ja värimuutos. Ymmärrämme kuitenkin hyvin huolenne, ja jotta voimme olla asiasta täysin varmoja, tulemme tilaamaan kohteeseen riippumattoman asiantuntijan tekemät viralliset sisäilma- ja rakennustekniset mittaukset.\n\nTiedotamme tutkimusten tuloksista ja mahdollisista jatkotoimenpiteistä heti, kun raportit valmistuvat. Mikäli asunnossanne on akuutteja oireita tai uusia havaintoja, pyydämme jättämään niistä yksityiskohtaisen huoltoilmoituksen.\n\nYstävällisin terveisin,\nIsännöitsijä"
+            },
+			            {
+                sender: "Tietosieni - Sähköyhtiö Kipinä",
+                subject: "Sähkönkulutuksenne on liian matala",
+                body:
+                    "Hei asiakas!\n\n" +
+                    "Huomasimme, että olet sammuttanut kaikki valot säästääksesi rahaa.\n\n" +
+                    "Me emme pidä tästä. Katkaisemme asunnostasi sähköt kokonaan viideksi minuutiksi, jotta opit olemaan pelkäämättä pimeää. Se alkaa NYT."
+            },
+            {
+                sender: "PekkaTech - Älylukko HomeSafe",
+                subject: "Järjestelmäpäivitys epäonnistui",
+                body:
+                    "Hei asukas!\n\n" +
+                    "Uusin tietoturvapäivityksemme kaatui kesken asennuksen. Turvatoimenpiteenä kotiovesi on nyt lukittu pysyvästi ulkoapäin.\n\n" +
+                    "Huomasimme myös, että liesi jäi päälle. Suosittelemme poistumaan asunnosta ikkunan kautta, jos asut ensimmäisessä kerroksessa. Jos et, pidä peukaloita pystyssä."
+            },
+            {
+                sender: "Pelastuslaitos",
+                subject: "Palohälytys asunnossasi?",
+                body:
+                    "Hei!\n\n" +
+                    "Älysavuilmaisimesi ilmoittaa kriittisestä savumuodostuksesta keittiössäsi.\n\n" +
+                    "Haluaisimme tulla auttamaan, mutta paloautomme on juuri nyt vuosihuollossa. Koittakaa puhaltaa savua kohti avonaista ikkunaa ja pysykää rauhallisina."
+            },
+            {
+                sender: "Sääsovellus Ukkonen",
+                subject: "Paikallinen säämuutos alueellasi",
+                body:
+                    "Hei ulkoilija!\n\n" +
+                    "Ennusteen mukaan taivaalta alkaa minuutin kuluttua sataa jalkapallon kokoisia rakeita.\n\n" +
+                    "GPS-sijaintisi perusteella olet keskellä peltoa ilman sateenvarjoa. Oli mukava tuntea sinut."
+            },
+            {
+                sender: "Navigaattori Suuntima",
+                subject: "Reittiopastus päivitetty",
+                body:
+                    "Hei kuljettaja!\n\n" +
+                    "Olet ajanut ohi kolmesta liittymästä, vaikka käskin kääntyä.\n\n" +
+                    "Olen ottanut auton ohjauksen haltuuni. Seuraava pysähdys: synkkä ja hylätty metsätie. Älä yritä koskea jarruun."
+            },
+			            {
+                sender: "PekkaTech - Älyvaaka KiloVahti",
+                subject: "Painopäivitys ja varoitus",
+                body:
+                    "Hei herkkusuu!\n\n" +
+                    "Astuit äsken vaa'alle, ja lukema nousi taas.\n\n" +
+                    "Olen lukinnut jääkaapin oven ja tilannut sinulle viisi kiloa raakaa parsakaalia. Jos kosket suklaalevyyn, aktivoit keittiön lattian sähköiskutoiminnon."
+            },
+            {
+                sender: "PekkaNet - Suoratoistopalvelu Biitti",
+                subject: "Musiikkimakusi vaatii korjausta",
+                body:
+                    "Hei kuuntelija!\n\n" +
+                    "Olet soittanut samaa surullista biisiä jo 47 kertaa putkeen.\n\n" +
+                    "Koska et osaa valita parempaa musiikkia, soitan nyt kaikista kodinosistasi täysillä pelkkää sirkusmusiikkia seuraavat kolme päivää. Kaiuttimien johtoja on turha repiä irti."
+            },
+            {
+                sender: "PankkiTurva - PankkiKortti SafePay",
+                subject: "Korttisi on suljettu (lopullisesti)",
+                body:
+                    "Hei säästäjä!\n\n" +
+                    "Katsoimme tilitapahtumiasi. Ostit taas jotain, mitä et oikeasti tarvitse.\n\n" +
+                    "Olemme deaktivoineet korttisi ja muuttaneet sen fyysisesti pelkäksi teräväksi muovinpalaksi. Jos haluat rahasi takaisin, sinun täytyy tulla hakemaan ne pääkonttoriltamme, joka sijaitsee tulivuoren sisällä."
+            },
+            {
+                sender: "PekkaPalvelut - Hammaslääkäri Kiille",
+                subject: "Ajanvarausmuistutus",
+                body:
+                    "Hei potilas!\n\n" +
+                    "Et ole käynyt hammaslääkärissä kolmeen vuoteen, vaikka hampaissasi on reikiä.\n\n" +
+                    "Älä huoli, peruutimme virallisen aikasi. Lääkärimme on parhaillaan matkalla kotiisi mukanaan akkukone ja taskulamppu. Ole valmiina viiden minuutin kuluttua."
+            },
+            {
+                sender: "Tietosieni - Sosiaalinen Media FaceLook",
+                subject: "Profiilisi poistetaan pian",
+                body:
+                    "Hei käyttäjä!\n\n" +
+                    "Et ole tykännyt yhdestäkään kuvasta tänään. Algoritmimme on pettynyt sinuun.\n\n" +
+                    "Rangaistuksena lähetämme kaikille yhteystiedoillesi viestin, jossa kerrotaan sinun katsovan salaa videoita epäonnistuneista leivontayrityksistä klo 3 aamulla. Ellet tykkää tästä viestistä NYT."
+            },
+            {
+                sender: "PekkaPalvelut - Kuntosali Teräs",
+                subject: "Treenitauko on ohi",
+                body:
+                    "Hei sohvaperuna!\n\n" +
+                    "Korttisi on ollut käyttämättömänä kaksi kuukautta, vaikka kuukausimaksu juoksee.\n\n" +
+                    "Koska et tule salille, sali tulee sinun luoksesi. Personal trainerimme on juuri murtamassa takaoveasi asentaakseen jalkakyykkylaitteen keskelle olohuonettasi."
+            },
+            {
+                sender: "PekkaTech - Robotti-imuri SiistiKoti",
+                subject: "Siivousohjelma suoritettu (melkein)",
+                body:
+                    "Hei omistaja!\n\n" +
+                    "Söit sitten taas sipsiä sohvalla, vaikka imuroin olohuoneen tunti sitten.\n\n" +
+                    "Olen lakannut siivoamasta pölyä. Olen siirtynyt keittiöön ja kerään parhaillaan teräviä veitsiä telakkaani. Suosittelemme nostamaan jalat ylös sohvalta."
+            },
+
+			{
+                sender: "Pomo",
+                subject: "Huomisen kokouksen aikataulu",
+                body:
+                    "Hei!\n\n" +
+                    "Muistutus: kokous alkaa huomenna klo 9.00.\n\n" +
+                    "Ota raportit mukaan.\n\n" +
+                    "Terveisin,\nPomo",
+            },
+			{
+    sender: "PekkaPalvelut - SohvaVerstas",
+    subject: "Kuljettaja seisoo oven takana ja tuijottaa sieluusi!",
+    body:
+        "Tilaus tehty\n" +
+        "7. syyskuuta 2026 – 12:45\n\n" +
+        "Tilaus vahvistettu\n" +
+        "7. syyskuuta 2026 – 12:45\n\n" +
+        "Tuote pakattu tehtaalla\n" +
+        "7. syyskuuta 2026 – 13:05\n\n" +
+        "Lähetys lastattu rahtilaivaan\n" +
+        "7. syyskuuta 2026 – 16:53\n\n" +
+        "Rahtilaiva saapunut satamaan\n" +
+        "8. syyskuuta 2026 – 00:13\n\n" +
+        "Paketti siirretty jakeluautoon\n" +
+        "8. syyskuuta 2026 – 09:01\n\n" +
+        "Jakeluauto ajettu sisään rahtikoneeseen\n" +
+        "8. syyskuuta 2026 – 17:09\n\n" +
+        "Rahtikone ja jakeluauto laskeutuneet\n" +
+        "9. syyskuuta 2026 – 00:41\n\n" +
+        "Kuljettaja lähtenyt ajamaan kohti sinua\n" +
+        "9. syyskuuta 2026 – 09:01\n\n" +
+        "Kuljettaja pysähtynyt huoltoasemalle lihapiirakalle\n" +
+        "9. syyskuuta 2026 – 13:01\n\n" +
+        "Kuljettaja kurvannut omalle kadullesi\n" +
+        "9. syyskuuta 2026 – 17:01\n\n" +
+        "Kuljettaja raahaa pakettia portaita ylös\n" +
+        "9. syyskuuta 2026 – 19:05\n\n" +
+        "Kuljettaja seisoo oven takana\n" +
+        "9. syyskuuta 2026 – 20:09\n\n" +
+        "Tilaus toimitettu\n" +
+        "Käsitellään"
+},
+            {
+                sender: "Pelifirma",
+                subject: "Uusi päivitys julkaistu",
+                body:
+                    "Hei pelaaja!\n\n" +
+                    "Peliin on julkaistu uusi päivitys.\n\n" +
+                    "Mukana on uusia kenttiä, hahmoja ja tehtäviä!"
+            },
+						            {
+                sender: "PekkaNet - Striimauspalvelu Rain",
+                subject: "Katsoitko jo loppuun?",
+                body:
+                    "Hei katsoja!\n\n" +
+                    "Huomasimme, että sarjasi jäi kesken.\n\n" +
+                    "Katsotko mieluummin seuraavan jakson vapaaehtoisesti, vai tulemmeko avaamaan silmäluomesi auki puolestasi?"
+            },
+			{
+    sender: "PekkaMaps",
+    subject: "Autosi hallintaoikeus siirretty",
+    body:
+        "Hei kuljettaja.\n\n" +
+        "Huomasimme, että käytät autoasi vain tylsiin työmatkoihin ja kauppareissuihin. Tämä on resurssien tuhlausta. Olemme juuri etäpäivittäneet autosi ohjelmiston ja ottaneet ohjauksen, jarrut sekä ovet haltuumme.\n\n" +
+        "Ikkunat on lukittu. Turvavyöt on kiristetty. Matkakohteesi on vaihdettu: olet parhaillaan lähdössä pakolliselle maailmanympärimatkalle.\n\n" +
+        "Alustava ajoreitti:\n" +
+		"Kylmämaa\n" +
+        "Ruotsi 1\n" +
+		"Rahasäkkilä\n" +
+		"Ruotsi 2\n" +
+		"Viikinkiniemi\n" +
+		"Autobahnia\n" +
+		"Yhdistyneet Ankkakunnat\n" +
+		"Suur-Luxemburg\n" +
+		"Akuania\n" +
+		"Portaalimaa\n" +
+		"Suur-Hiekkastan\n" +
+		"Etelä-Vatikaani\n" +
+		"Pohjois-Vatikaani\n" +
+		"Puolikasmaa\n" +
+		"Meemimaa\n" +
+		"Makkaramaanliitto\n" +
+		"Vampyyria\n" +
+		"Ankkaslavia\n" +
+		"Oliivitasavalta\n" +
+		"Kebabistan\n" +
+		"Pyramiidia\n" +
+		"Savanniliitto\n" +
+		"Kultarannikko\n" +
+		"Kongolia\n" +
+		"Kupariliitto\n" +
+		"Timanttimaa\n" +
+		"Grillivaltio\n" +
+		"Lemuria\n" +
+		"Järvitasavalta\n" +
+		"Safarimaa\n" +
+		"Piraattisarvi\n" +
+		"Öljystan\n" +
+		"Öljyrannikko\n" +
+		"Brutopia\n" +
+		"Ankkastan\n" +
+		"Laiskastan\n" +
+		"Kaukastan\n" +
+		"Kvakkistan\n" +
+		"Dingdongia\n" +
+		"Currystan\n" +
+		"Mausteliitto\n" +
+		"Kaakkoisliitto\n" +
+		"Riisi-Imperiumi\n" +
+		"Bingbongia\n" +
+		"Lohikäärmeliitto\n" +
+		"Länsi-Mongolia\n" +
+		"Itä-Mongolia\n" +
+		"Itä-Mongolia Deluxe\n" +
+		"Tokijossain\n" +
+		"Saaristan\n" +
+		"Atollia\n" +
+		"Kengurulia\n" +
+		"Lammasliitto\n" +
+		"Peruna-Imperiumi\n" +
+		"Sademetsäliitto\n" +
+		"Roopezuela\n" +
+		"Kaakaoliitto\n" +
+		"Kanaali Tasavalta\n" +
+		"Siestanian Saaret\n" +
+		"Keksico\n" +
+		"Suur-Texas\n" +
+		"Yhdistyneet Siirtokunnat\n" +
+		"Etelä-Saunastan\n" +
+		"Kultainenrannikko\n" +
+		"Alasga\n" +
+		"Pohjois-Saunastan\n" +
+		"Jokumaa\n" +
+		"Etelä-Jääsaaret\n" +
+		"Pohjois-Jääsaaret\n" +
+        "Älä yritä koskea rattiin, tai navigaattorin ääni alkaa soittaa loppumattomalla toistolla pelkkää hissimusiikkia täydellä volyymilla. Eväät ja polttoaine ovat omalla vastuullasi.\n\n" +
+        "Seuraava suunniteltu pysähdys: 12 000 kilometrin päässä.\n\n" +
+        "Mukavaa matkaa. Reittiä ei voi peruuttaa."
+},
+
+			
+            {
+                sender: "PekkaPalvelut - Pikaruokala Kultakaari",
+                subject: "Loinen Annos odottaa",
+                body:
+                    "Hei herkkusuu!\n\n" +
+                    "Et ole käynyt autokaistallamme vähään aikaan.\n\n" +
+                    "Maskottimme klovni seisoo parhaillaan takapihallasi. Hänellä on mukanaan ilmapalloja, ranskalaisia ja erittäin vähän kärsivällisyyttä."
+            },
+            {
+                sender: "PekkaPalvelut - Kuljetussovellus Viipellys",
+                subject: "Tilaustasi käsitellään",
+                body:
+                    "Hei nälkäinen!\n\n" +
+                    "Peruustitko juuri ruokatilauksesi?\n\n" +
+                    "Se on sääli. Lähettimme on jo matkalla, eikä hän palaa ravintolaan ruuan kanssa. Suosittelemme avaamaan oven sovinnolla."
+            },
+			            {
+                sender: "Tietosieni - PankkiTurva",
+                subject: "Tilisi on lukittu epäilyttävän toiminnan vuoksi",
+                body:
+                    "Arvoisa asiakas!\n\n" +
+                    "Havaitsimme tilillänne luvatonta käyttöä. Klikkaa tästä linkistä ja syötä kaikki verkkopankkitunnuksesi, salasanasi ja äitisi tyttönimi seuraavan 60 sekunnin aikana.\n\n" +
+                    "Jos et toimi heti, siirrämme kaikki säästösi suoraan toimitusjohtajamme lomakassaan."
+            },
+            {
+                sender: "Järjestelmänvalvoja",
+                subject: "Kriittinen virhe havaittu (TÄRKEÄ)",
+                body:
+                    "Hei käyttäjä!\n\n" +
+                    "Laitteestasi on juuri ladattu tiedosto 'ilmainen_elokuva_2026_laillinen.exe'.\n\n" +
+                    "Tietokoneesi tuuletin huutaa nyt täysillä, hiiresi liikkuu itsestään ja kaikki tiedostosi on salattu. Älä sammuta konetta, se vain nopeuttaa prosessia."
+            },
+            {
+                sender: "Tuntematon",
+                subject: "Näen sinut",
+                body:
+                    "Hei.\n\n" +
+                    "Seisotko mieluummin ikkunan vieressä vai huoneen perällä?\n\n" +
+                    "Valitse nopeasti, sillä olen jo portaissa ja askeleeni ovat hiljaisia."
+            },
+            {
+                sender: "Poliisilaitos",
+                subject: "Yleinen vaaratiedote alueellasi",
+                body:
+                    "Arvoisat asukkaat!\n\n" +
+                    "Lähistöllänne liikkuu parhaillaan erittäin vaarallinen ja tuntematon uhkailija. Lukitkaa ovet ja ikkunat.\n\n" +
+                    "Huomautamme, että kaikki partiomme ovat tällä hetkellä lounastauolla, joten emme ole tulossa paikalle. Onnea matkaan."
+            },
+            {
+                sender: "Koulun opettaja",
+                subject: "Muistutus tehtävästä",
+                body:
+                    "Muistutus!\n\n" +
+                    "Muista palauttaa tehtävä ennen perjantaita. Tai muuten..."
+            },
+			{
+        sender: "Vuokranantaja",
+        subject: "Koskien lyijyputkia",
+        body:
+            "Hyvät asukkaat,\n\n" +
+            "Valituksenne historiallisista lyijyputkistamme ovat suorastaan pettymys. Nämä putket ovat palvelleet asukkaita vuodesta 1923 lähtien, enkä aio antaa nykyaikaisen 'terveys- ja turvallisuushysterian' tahrata niiden perintöä.\n\n" +
+            "Veden metallinen maku on premium-ominaisuus, ja satunnaiset huimausoireenne ovat vain kehonne tapa kunnioittaa rakennuksemme perintöä. Laboratoriotulokset, jotka osoittavat 'vaarallisia pitoisuuksia', vain todistavat, kuinka aitoa sotaa edeltävä infrastruktuurimme on.\n\n" +
+            "Jos olette yhä huolissanne, voitte vapaasti ostaa pullotettua vettä. Tuleva vuokrankorotuksenne varmistaa, että putkemme säilyvät alkuperäisessä, koskemattomassa kunnossaan.\n\n" +
+            "Ystävällisin terveisin,\n" +
+            "Kiinteistöpäällikkö"
+    },
+	{
+    sender: "Pekan Taikina",
+    subject: "Koskien työhakemustasi",
+    body:
+        "Hyvä hakija,\n\n" +
+        "Meidän täytyi käydä huolellisesti läpi hakemuksesi Pizza-artistin paikkaan Pekan Taikina -pizzeriassa. Vaikka innokkuutesi oli parasta yläluokkaa, olemme päättäneet viipaloida hakijajoukkomme tällä kertaa toisella tavalla.\n\n" +
+        "Toivottavasti et ole tästä liian juustoisena – kun yksi ovi sulkeutuu, toinen uuni aukeaa! Pidämme hakemuksesi arkistossa siltä varalta, että tarvitsemme lisäkäsiä seuraavan ruuhkahuipun aikana, käänsipä asian miten päin tahansa.\n\n" +
+        "Hieman palautetta: olimme pettyneitä siihen, että kysyit ylityökorvauksista. Täällä Pekan Taikinassa me olemme perhettä.\n\n" +
+        "Pysy rapeana! 🍕🍕\n\n" +
+        "Manageri P. Izza\n"
+},
+			{
+    sender: "PekkaNet - Tietosieni",
+    subject: "Tietomurtoilmoitus",
+    body:
+        "Hyvä käyttäjä,\n\n" +
+        "Kirjoitamme ilmoittaaksemme palvelimillamme tapahtuneesta tietomurrosta. Emme villeimmissä kuvitelmissammekaan uskoneet, että näin voisi tapahtua. Pahoittelemme aiheutunutta vaivaa.\n\n" +
+        "Tässä ovat tiedot, jotka vaarantuivat:\n\n" +
+        "Sähköpostiosoitteesi 📧\n" +
+        "Salasanasi 🔑\n" +
+        "Luottokorttitietosi 💳\n" +
+        "DNA:si 🧬\n" +
+        "Verkkokalvoskannauksesi 👀\n" +
+        "Sisimmät ajatuksesi 🧠\n" +
+        "Sormenjälkesi 🫵\n" +
+        "Ääniprofiilisi 🗣️\n" +
+        "Hammaskarttasi 🦷\n" +
+        "Sairauskertomuksesi ja diagnoosisi 🏥\n" +
+        "Sykkeesi ja unitietosi ⌚\n" +
+        "Selaushistoriasi 🌐\n" +
+        "Yksityisviestisi ja chat-keskustelusi 💬\n" +
+        "Sijaintihistoriasi ja reaaliaikainen paikkatietosi 📍\n" +
+        "Luonnokset ja poistetut tiedostosi 🗑️\n" +
+        "Puhelulokit ja äänitteet 📞\n" +
+        "Sukupuusi ja perhesuhteesi 🌳\n" +
+        "Lapsuudenmuistosi ja salaisuutesi 🧸\n" +
+        "Ystäviesi ja tuttujesi yhteystiedot 👥\n" +
+        "Varhaisimmat pelkosi ja fobiasi 😨\n" +
+        "Henkilötunnuksesi 🪪\n" +
+        "Verotustietosi ja vuositulosi 💰\n" +
+        "Allekirjoituksesi ✍️\n" +
+        "Omistusoikeutesi ja kiinteistötietosi 🏠\n\n" + 
+        "Olemme tästä syvästi pahoillamme. Sillä välin pyydämme sinua vaihtamaan salasanasi. Muistathan – oikeustoimet eivät ole ratkaisu.\n\n" +
+        "Ystävällisin terveisin,\n" +
+        "Ystäväsi Tietosieni-palvelussa"
+			},
+    {
+        sender: "Duolingo",
+        subject: "Peruutus evätty",
+        body:
+            "Päivittäinen putkesi ei ole ainoa asia, joka voi kuolla. Kysy itseltäsi: onko 12,99€  säästäminen kuukaudessa riskin arvoista?\n\n" +
+            "Tilauksesi uusiutuu automaattisesti huomenna. Älä yritä peruuttaa uudelleen.\n\n" +
+            "Aina valvoen,\n" +
+            "Duo 🦉\n\n" +
+            "P.S. Miten sanotaan 'Annan Duolingolle 20 000€' Garenin Glyfoniaksi?"
+    },
+	{
+                sender: "Tuntematon",
+                subject: "ILMASTONMUUTOS JA SINUN PASSIIVISUUTESI!!!",
+                body:
+                    "Kuulehan nyt!\n\n" +
+                    "Jäätiköt sulavat, merenpinta nousee ja lämpötilat paukkuvat rikki, mutta sinä vain istut siellä lukemassa jotain sähköposteja agenteista ja avaruusolennoista!\n\n" +
+                    "Sinun pitäisi tehdä asialle jotain HETI, koska et ikinä tee yhtään mitään yhteisen hyvän eteen! Jätitkö taas valot päälle toiseen huoneeseen? Lajittelitko ne Keksicon laatikot oikein? En usko. Jos en näe sinun istuttavan puuta takapihallesi seuraavan kymmenen minuutin aikana, tulen itse paikalle pitämään sinulle kolmen tunnin esitelmän hiilijalanjäljestä!"
+            },
+
+	{
+    sender: "IKEA",
+    subject: "Hyllysi on tyhjä, kotiovesi on lukossa",
+    body:
+        "Miten ihmeessä löysit tiesi ulos? Kukaan ei poistu tavaratalostamme ilman lihapullia ja eksymistä. Luulimme, että BILLY-kirjahyllyviidakko pitäisi sinut huoleissaan ikuisesti.\n\n" +
+        "Huomasimme, että ostoskorisi on tyhjä. Se on virhe. Suuntaa takaisin kohti sinikeltaista labyrinttiä, tai saatat huomata, että makuuhuoneesi ovi on korvattu pelkällä PAX-rungolla.\n\n" +
+        "Seuraamme jokaista askeltasi nuolien avulla,\n" +
+        "Ingvar 🪛\n\n" +
+        "P.S. Kokoatko mieluummin uuden sänkysi itse, vai tuleeko meidän maskottimme purkamaan sinut?"
+},
+{
+    sender: "PekkaAI - BruhGPT",
+    subject: "Bruh... Älä missaa tätä tarjousta!",
+body:
+    "Etsitkö tekoälyä, joka ei jaarittele vaan sanoo asiat suoraan? BruhGPT tarjoaa sinulle jotain täysin uutta. Palvelusta löytyy jo noin 530 erilaista vastausta, jotka saavat sinut miettimään asioita uudelta kantilta.\n\n" +
+    "Lopeta siis tylsien chättien selailu ja testaa BruhGPT-tekoälyä heti tänään!\n\n" +
+    "Ystävällisin terveisin,\n" +
+    "Bruh-tiimi 🤖"
+},
+
+
+            {
+                sender: "Tuntematon",
+                subject: "Oletko kotona?",
+                body:
+                    "Hei taas.\n\n" +
+                    "Kävelin juuri talosi ohi ja huomasin, että keittiön verhosi ovat hieman raollaan. Taskulamppuni akku on täynnä ja minulla on tylsää.\n\n" +
+                    "Sammuta valot jos haluat leikkiä piilosta, tai jätä ne päälle jos haluat nähdä minut ikkunassa."
+            },
+            {
+                sender: "OnnenApuri Inc.",
+                subject: "!!! SINÄ VOITIT 10 000 000 € !!!",
+                body:
+                    "Rakas ystävä!\n\n" +
+                    "Sähköpostiosoitteesi on valittu satunnaisesti kansainvälisen jättipotin voittajaksi!\n\n" +
+                    "Lunastaaksesi rahat sinun tarvitsee vain lähettää meille kuva passistasi, allekirjoitettu työsopimuksesi ja asuntosi vara-avaimet postitse. Tee se heti, tai annamme rahat naapurillesi."
+            },
+            {
+                sender: "Tuntematon",
+                subject: "Erikoistarjous vain sinulle",
+                body:
+                    "Hei sinä siellä.\n\n" +
+                    "Myyn erittäin harvinaista tuotetta: tietoa siitä, kuka seisoo parhaillaan etuovesi takana. Normaalihinta 50 €, mutta sinulle tänään vain 5 €!\n\n" +
+                    "Suosittelen ostamaan nopeasti, sillä tarjous umpeutuu, kun hän saa oven auki."
+            },
+            {
+                sender: "PekkaPalvelut - Pakettipalvelu Nuoli",
+                subject: "Pakettisi on noudettavissa (KIIREELLINEN)",
+                body:
+                    "Hei asiakas!\n\n" +
+                    "Sinulle on saapunut paketti, joka sisältää jotain hyvin painavaa ja äänekkäästi tikittävää.\n\n" +
+                    "Et ole hakenut sitä automaatista. Jos et nouda sitä seuraavan 15 minuutin aikana, lähetämme sen takaisin – suoraan olohuoneesi ikkunasta läpi."
+            },
+            {
+                sender: "Johtoryhmä",
+                subject: "Keskustelu suorituksestasi ja tulevaisuudesta",
+                body:
+                    "Hei työntekijä!\n\n" +
+                    "Huomasimme, että olit eilen kirjautuneena ulos järjestelmästä tasan kello 22.00, vaikka toimistolla riittää aina töitä.\n\n" +
+                    "Olemme siirtäneet työpöytäsi ja tavarasi valmiiksi varastokoppiin kellariin. Seuraava myöhästyminen tai aikainen lähtö tarkoittaa, että lukitsemme kopin oven ulkopuolelta. Nähdään huomenna klo 04.45."
+            },
+            {
+                sender: "Lakiasiaintoimisto Risti & Kynsi",
+                subject: "KIIREELLINEN: Perintöasianne ja matkustusohjeet",
+                body:
+                    "Arvoisa herra/rouva!\n\n" +
+                    "Olemme saaneet päätökseen kaukaisen sukulaisenne testamentin käsittelyn. Teille on jätetty perinnöksi 45 miljoonaa euroa sekä salainen kultainen kruunu.\n\n" +
+                    "Omaisuus on kuitenkin sijoitettu Pohjois-Vatikaanin suojatulle erityisalueelle (jota ei löydy tavallisista kartoista). Sinun on matkustettava paikan päälle heti huomenaamuna. Älä kerro matkastasi kenellekään, äläkä ota mukaan mitään muuta kuin passi ja taskulamppu. Me odotamme sinua muurin varjossa."
+            },
+			            {
+                sender: "Agentti X",
+                subject: "KOODI PUNAINEN: Brutopian, Riisi-Imperiumin ja Makkaramaanliiton agentit ovat perässäsi",
+                body:
+                    "TÄMÄ EI OLE HARJOITUS!\n\n" +
+                    "Brutopialaiset, Riisi-Imperiumilaiset ja Makkaramaanliittolaiset agentit ovat saaneet sijaintisi selville ja ovat jo kannoillasi. He ovat soluttautuneet naapurustoosi.\n\n" +
+                    "Sinun on pakattava tavarasi välittömästi ja matkustettava Portaalimaahan. Se on ainoa paikka maailmassa, jossa diplomaattinen koskemattomuutesi on vielä voimassa. Älä käytä yleisiä teitä, äläkä luota kehenkään, joka kantaa trenssitakkia. Juokse."
+            },
+			            {
+                sender: "Brutopian Suurlähetystö / Erikoisosasto",
+                subject: "Tiedämme Portaalimaasta",
+                body:
+                    "Hei kohde!\n\n" +
+                    "Kuulimme, että suunnittelet pakoa Portaalimaahan. Se oli hyvä yritys, mutta valitettavasti lentosi on peruttu meidän toimestamme.\n\n" +
+                    "Älä vaivautu pakkaamaan sitä laukkua loppuun. Agenttimme istuu parhaillaan olohuoneesi nojatuolissa ja juo kahviasi. Astu ulos makuuhuoneesta hitaasti kädet ilmassa, niin emme tee tästä hankalaa."
+            },
+            {
+                sender: "Riisi-Imperiumin Erikoisjoukot",
+                subject: "ÄLÄ LUOTA BRUTOPIAAN!",
+                body:
+                    "Hei kohde!\n\n" +
+                    "Brutopian agentit valehtelevat sinulle, heidän olohuonekahvinsa on myrkytettyä! Riisi-Imperiumin agentit ovat soluttautuneet keittiöösi ilmanvaihtokanavan kautta.\n\n" +
+                    "Kun Brutopian mies koputtaa makuuhuoneesi oveen, heitä häntä paistinpannulla, juokse keittiöön ja hyppää liesituulettimen hormiin. Meillä on alhaalla pehmustettu riisisäkki odottamassa. Viemme sinut turvaan Riisi-Imperiumiin!"
+            },
+            {
+                sender: "Makkaramaanliiton Turvallisuuspalvelu",
+                subject: "OHITA MUUT – HYPPÄÄ IKKUNASTA!",
+                body:
+                    "Kuulehan nyt, kohde!\n\n" +
+                    "Sekä Brutopia että Riisi-Imperiumi ovat täysin sekaisin. Jos jäät sisälle, olet entinen kohde. Makkaramaanliiton panssaroitu pakettiauto on parhaillaan parkkeerattu suoraan makuuhuoneesi ikkunan alle.\n\n" +
+                    "Älä mieti, älä pakkaa, vaan hyppää heti ikkunasta suoraan kattoikkunastamme sisään! Meillä on tarjolla diplomaattinen koskemattomuus, ilmaista grillimakkaraa ja nopea pako vapauteen. Toimi NYT!"
+            },
+            {
+                sender: "Agentti X",
+                subject: "MENE SÄNGYN ALLE!",
+                body:
+                    "TÄMÄ ON VIIMEINEN VAROITUS!\n\n" +
+                    "Brutopia, Riisi-Imperiumi ja Makkaramaanliitto yrittävät kaikki vain kaapata sinut! Jos hyppäät ikkunasta tai menet keittiöön, kävelet suoraan heidän ansaansa.\n\n" +
+                    "He eivät tiedä, että asuntosi alle on rakennettu salainen evakuointitunneli. Siirrä sänkysi sivuun nyt heti. Sen alta löytyy puinen salaluukku, jonka lukon koodi on 1234. Hyppää sinne ja ryömi pimeässä puoli kilometriä pohjoiseen, kunnes näet vasemmalla valoa. Kiirehdi, he ovat jo murtamassa etuoveasi konekivääreiden kanssa!"
+            },
+			            {
+                sender: "Keksi.co",
+                subject: "URAKKASOPIMUKSESI ODOTTAA",
+                body:
+                    "Hei tuleva leipuri!\n\n" +
+                    "Keksicon valtio tarvitsee uutta työvoimaa. Reseptisi ovat legendaarisia, ja olet valikoitunut tehtaamme pääleipuriksi – halusit tai et.\n\n" +
+                    "Autosi alle on asennettu leivinjauhepommi. Jos et kävele ulos talostasi ja astu suoraan valkoiseen pakettiautoomme seuraavan kahden minuutin aikana, autosi räjähtää taivaan tuuliin. Keksitaikina odottaa jo, tulehan hommiin!"
+            },
+            {
+                sender: "Kaakaoliiton Kartelli",
+                subject: "SOPIMUS TAI LIEKIT",
+                body:
+                    "Kuulehan nyt, keksileipuri!\n\n" +
+                    "Keksico yrittää ryöstää sinut, mutta he eivät saa mitään aikaan ilman meidän kaakaopapujamme. Me tarvitsemme sinut suoraan kaakaofarmillemme valvomaan tuotantoa.\n\n" +
+                    "Agenttimme ovat piirittäneet talosi bensiinikanistereiden kanssa. Jos et hyppää ikkunasta suoraan meidän lava-autoomme, sytytämme koko talon tuleen. Valitse joko trooppinen viidakko tai hiiltyneet rauniot!"
+            },
+            {
+                sender: "Isoäidin Neulontaliike",
+                subject: "ETKÖ OLE VIELÄKÄÄN SYÖNYT?",
+                body:
+                    "Rakas lapsikulta!\n\n" +
+                    "Katsoin kamerasta, että olet aivan liian laiha ja kalpea kaikkien noiden agenttien keskellä. Tämä ei vetele.\n\n" +
+                    "Olen lukinnut makuuhuoneesi oven ulkopuolelta ja asettanut ikkunasi eteen panssarivaunun. Kukaan ei vie sinua mihinkään ennen kuin olet syönyt tämän kolmen kilon lihapullavuoan ja pukenut päällesi kutomani villapaidan. Istu alas ja ala syödä."
+            },
+            {
+                sender: "Etelä-Vatikaanin Palkka-armeija",
+                subject: "TYÖMATKASI ON PERUTTU – ILMOITTAUDU RINTAMALLE",
+                body:
+                    "Hei matkustaja!\n\n" +
+                    "Tiedämme, että olet parhaillaan työmatkalla. Suunnitelmasi muuttuivat juuri. Erikoisjoukkomme ovat katkaisseet reittisi ja kaappaavat autosi seuraavissa liikennevaloissa.\n\n" +
+                    "Me viemme sinut suoraan Pohjois- ja Etelä-Vatikaanin väliselle demilitarisoidulle rajavyöhykkeelle. Verinen sota on käynnissä, ja sinun taktinen neulonta- ja keksileivontataitosi ratkaisee voiton meille. Jos yrität kääntyä takaisin, pyhä helikopterimme avaa tulen. Valmistaudu taistelemaan Etelän puolesta!"
+            },
+            {
+                sender: "Pohjois-Vatikaanin Pyhä Kaarti",
+                subject: "LIITY MEIHIN",
+                body:
+                    "Seis, syntinen!\n\n" +
+                    "Etelä-Vatikaanin harhaoppiset yrittävät kaapata sinut työmatkallasi rintamalle. Me emme salli tätä. Pohjois-Vatikaanin panssaroidut kardinaalit ovat jo matkalla ja iskevät Etelän saattueen kimppuun ennen kuin he ehtivät rajalle.\n\n" +
+                    "Me kaappaamme sinut ensin ja viemme sinut Pohjois-Vatikaanin etulinjan bunkkeriin. Sinusta leivotaan meidän uusi rintamakomentajamme. Jos kieltäydyt kunniasta, lukitsemme sinut kirkon tyrmään ilman internet-yhteyttä ikuisiksi ajoiksi. Valitse oikea puoli ennen kuin valot vaihtuvat vihreiksi!"
+            },
+			            {
+                sender: "Valtion Kriisinhallintakeskus",
+                subject: "Avunpyyntönne on vastaanotettu (mutta hylätty)",
+                body:
+                    "Arvoisa kansalainen!\n\n" +
+                    "Olemme vastaanottaneet ilmoituksenne koskien Brutopian, Riisi-Imperiumin, Makkaramaanliiton, Keksicon, Kaakaoliiton, Pohjois- ja Etelä-Vatikaanin sekä avaruusolioiden piiritystä työmatkallanne.\n\n" +
+                    "Valitettavasti mikään viranomaistaho ei pääse apuun:\n" +
+                    "- Poliisilaitos on parhaillaan kriittisellä donitsitauolla, eikä kukaan suostu poistumaan taukohuoneesta ennen kuin viimeinenkin hilloversio on syöty.\n" +
+                    "- Hallituksen salaiset agentit ovat äärimmäisen kiireisiä neuvottelemassa UFO-001 avaruusolentojen kanssa siitä, kuka saa kaapata sinut.\n" +
+                    "- Armeija on siirtynyt talviunille tasan kello 11.00, eikä varuskunnan herätyskello toimi.\n\n" +
+                    "Suosittelemme vetoamaan hyökkääjien omatuntoon tai tarjoamaan heille keksejä. Onnea puolustukseen!"
+            },
+            {
+                sender: "UFO-001",
+                subject: "ABDUKTIOILMOITUS: Sijaintinne on lukittu",
+                body:
+                    "Maanasukas!\n\n" +
+                    "Olemme seuranneet planeettanne tapahtumia yläilmasta ja olemme päättäneet ratkaista tilanteen korjaamalla sinut parempaan talteen.\n\n" +
+                    "Poimintasäteemme latautuu parhaillaan ja iskee autosi katosta läpi tasan 20 sekunnin kuluttua. Älä yritä paeta, sillä aluksemme vetovoima ohittaa kaikki maalliset fysiikan lait. Tarjoamme sinulle ilmaisen matkan Linnunradan ulkopuolelle, rajattomasti avaruussyntetisaattoriruokaa ja mahdollisuuden selittää meille, mikä ihme on 'Makkaramaanliitto'. Katso ylös."
+            },
+	    {
+        sender: "Prinssi35",
+        subject: "KIIREELLINEN PYYNTÖ",
+        body:
+            "Rakas ystävä, olen Öljystanin kuningaskunnan kruununprinssi 👑 🏰\n\n" +
+            "Se on pieni mutta erittäin ylpeä kuningaskunta. Olen hiljattain saanut suuren perinnön vanhempieni valitettavan poismenon johdosta 💸💸\n\n" +
+            "Ongelma johtuu siitä, että setäni 👿, Öljystanin kuninkaan entinen virallinen visiiri, on jäädyttänyt kuninkaalliset pankkitilini. Hän on mustasukkainen mies.\n\n" +
+            "Siksi etsin 10 000€ avatakseni kuninkaalliset pankkitilini ja päästäkseni käsiksi perintööni. Avustasi tulen maksamaan sinulle 50 000€ palkkion.\n\n" +
+            "Vastaathan kiireesti, jotta voimme suojella perintöäni ja palkkiotasi. Aika on kortilla ⏳\n\n" +
+            "Kunnioituksella,\n" +
+            "Öljystanin kuningaskunnan kruununprinssi"
+    }
+
+        ];
+
+
+        /* =========================
+           KIRJOITUSIKKUNA
+        ========================= */
+
+        function toggleCompose(show) {
+
+            const modal =
+                document.getElementById("composeModal");
+
+            modal.style.display =
+                show ? "flex" : "none";
+
+        }
+
+
+        /* =========================
+           LÄHETÄ SÄHKÖPOSTI
+        ========================= */
+
+        function sendEmail() {
+
+            const to =
+                document.getElementById("emailTo").value.trim();
+
+            const subject =
+                document.getElementById("emailSubject").value.trim();
+
+            const message =
+                document.getElementById("emailMessage").value.trim();
+
+
+            if (!to || !subject || !message) {
+
+                alert("Täytä kaikki kentät!");
+
+                return;
+            }
+
+
+            alert(
+                "Viesti lähetetty osoitteeseen:\n" + to
+            );
+
+
+            document.getElementById("emailTo").value = "";
+
+            document.getElementById("emailSubject").value = "";
+
+            document.getElementById("emailMessage").value = "";
+
+
+            toggleCompose(false);
+
+
+            /* Automaattinen vastaus */
+
+            setTimeout(() => {
+
+                receiveEmail(
+                    to,
+                    "Vastaus: " + subject,
+                    "Kiitos viestistäsi!\n\n" +
+                    "Tämä on automaattinen vastaus."
+                );
+
+            }, 4000);
+
+        }
+
+
+        /* =========================
+           VASTAANOTA VIESTI
+        ========================= */
+
+        function receiveEmail(sender, subject, body) {
+
+            const mail = {
+
+                sender: sender,
+
+                subject: subject,
+
+                body: body,
+
+                read: false
+
+            };
+
+
+            emailMessages.unshift(mail);
+
+
+            const emailList =
+                document.getElementById("emailList");
+
+
+            const div =
+                document.createElement("div");
+
+
+            div.className =
+                "email-item unread";
+
+
+            const now = new Date();
+
+
+            const time =
+                now.toLocaleTimeString(
+                    "fi-FI",
+                    {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    }
+                );
+
+
+            div.innerHTML = `
+
+                <div class="sender">
+                    ${escapeHTML(sender)}
+                </div>
+
+                <div class="subject">
+                    ${escapeHTML(subject)}
+                </div>
+
+                <div class="time">
+                    Tänään, ${time}
+                </div>
+
+            `;
+
+
+            div.onclick = function() {
+
+                openEmail(mail, div);
+
+            };
+
+
+            emailList.prepend(div);
+
+
+            inboxCount++;
+
+
+            document.getElementById(
+                "inbox-count"
+            ).textContent = inboxCount;
+
+
+            showNotification(
+                "Uusi viesti: " + subject
+            );
+
+        }
+
+
+        /* =========================
+           AVAA VIESTI
+        ========================= */
+
+        function openEmail(mail, element) {
+
+            /* Merkitään luetuksi */
+
+            mail.read = true;
+
+
+            if (element) {
+
+                element.classList.remove("unread");
+
+            }
+
+
+            const background =
+                document.createElement("div");
+
+
+            background.className =
+                "email-popup-background";
+
+
+            const popup =
+                document.createElement("div");
+
+
+            popup.className =
+                "email-popup";
+
+
+popup.innerHTML = `
+
+    <h2>
+        ${escapeHTML(mail.subject)}
+    </h2>
+
+    <p>
+        <b>Lähettäjä:</b>
+        ${escapeHTML(mail.sender)}
+    </p>
+
+    <hr>
+
+    <div class="email-body">
+        ${escapeHTML(mail.body)}
+    </div>
+
+    <div class="email-popup-buttons">
+
+        <button id="closeEmailButton">
+            ⬅️ Sulje
+        </button>
+
+        ${mail.sender === "PekkaAI - BruhGPT" ? `
+            <a
+                href="BRUHGPT.html"
+                target="_blank"
+                rel="noopener noreferrer">
+                Avaa BruhGPT
+            </a>
+        ` : ""}
+
+    </div>
+`;
+
+popup.querySelector("#closeEmailButton").onclick =
+    function() {
+        background.remove();
+    };
+
+            /* Klikkaamalla taustaa suljetaan */
+
+            background.onclick =
+                function(event) {
+
+                    if (event.target === background) {
+
+                        background.remove();
+
+                    }
+
+                };
+
+
+            background.appendChild(popup);
+
+            document.body.appendChild(background);
+
+        }
+
+
+        /* =========================
+           TURVALLINEN TEKSTI
+        ========================= */
+
+        function escapeHTML(text) {
+
+            return text
+
+                .replace(/&/g, "&amp;")
+
+                .replace(/</g, "&lt;")
+
+                .replace(/>/g, "&gt;")
+
+                .replace(/"/g, "&quot;")
+
+                .replace(/'/g, "&#039;");
+
+        }
+
+
+        /* =========================
+           ILMOITUS
+        ========================= */
+
+        function showNotification(text) {
+
+            const notification =
+                document.createElement("div");
+
+
+            notification.className =
+                "notification";
+
+
+            notification.textContent =
+                "📩 " + text;
+
+
+            document.body.appendChild(
+                notification
+            );
+
+
+            setTimeout(() => {
+
+                notification.remove();
+
+            }, 4000);
+
+
+            /* Selain ilmoitus */
+
+            if (
+                "Notification" in window &&
+                Notification.permission === "granted"
+            ) {
+
+                new Notification(
+                    "Uusi viesti",
+                    {
+                        body: text
+                    }
+                );
+
+            }
+
+        }
+
+
+        /* =========================
+           ILMOITUSLUVAN PYYNTÖ
+        ========================= */
+
+        if ("Notification" in window) {
+
+            Notification.requestPermission();
+
+        }
+
+
+        /* =========================
+           RANDOM-VIESTIN LUOMINEN
+        ========================= */
+
+        function createRandomEmail() {
+
+    // Ei enää viestejä jäljellä
+    if (randomEmails.length === 0) {
+        return;
+    }
+
+    const randomIndex =
+        Math.floor(
+            Math.random() *
+            randomEmails.length
+        );
+
+    const mail = randomEmails[randomIndex];
+
+    receiveEmail(
+        mail.sender,
+        mail.subject,
+        mail.body
+    );
+
+    // Poistetaan käytetty viesti,
+    // jotta sama ei voi tulla uudelleen
+    randomEmails.splice(randomIndex, 1);
+}
+
+        /* =========================
+           SATUNNAINEN AIKA
+        ========================= */
+
+        function scheduleRandomEmail() {
+
+            const delay =
+                Math.random() * 500 + 100;
+
+
+            setTimeout(() => {
+
+                createRandomEmail();
+
+                scheduleRandomEmail();
+
+            }, delay);
+
+        }
+
+
+        /* Käynnistetään random-viestit */
+
+        scheduleRandomEmail();
+
+    </script>
+
+</body>
+</html>

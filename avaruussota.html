@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Avaruustaistelu</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #030817;
+  color: #dcecff;
+  font-family: Consolas, monospace;
+  overflow: hidden;
+}
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+#hud {
+  position: fixed;
+  inset: 12px 14px auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+.panel {
+  background: #06152ddd;
+  border: 1px solid #168dff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 190px;
+  box-shadow: 0 0 14px #0077ff30;
+}
+.red { border-color: #ff405b; }
+h3 { margin: 0 0 8px; color: #4eb7ff; }
+.red h3 { color: #ff6479; }
+.bar {
+  height: 9px;
+  background: #15243b;
+  border: 1px solid #355274;
+  margin-top: 7px;
+}
+.bar div { height: 100%; background: #13e99a; }
+.red .bar div { background: #ff405b; }
+#bottom {
+  position: fixed;
+  bottom: 12px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+#controls, #fleet {
+  background: #06152de8;
+  border: 1px solid #168dff;
+  border-radius: 8px;
+  padding: 10px 13px;
+}
+#controls { font-size: 13px; line-height: 1.8; }
+#fleet { display: flex; gap: 7px; }
+.shipcard {
+  border: 1px solid #315578;
+  padding: 7px;
+  min-width: 60px;
+  text-align: center;
+  color: #7ac9ff;
+}
+.shipcard.selected {
+  border: 2px solid #00d9ff;
+  box-shadow: 0 0 12px #00bfff;
+}
+.shipcard b { display:block; font-size: 18px; }
+#message {
+  position: fixed;
+  top: 28%;
+  width: 100%;
+  text-align: center;
+  font-size: clamp(22px, 4vw, 42px);
+  color: #fff;
+  text-shadow: 0 0 20px #008cff;
+  pointer-events: none;
+}
+#hint {
+  position: fixed;
+  top: 48%;
+  width: 100%;
+  text-align: center;
+  color: #9bcfff;
+  pointer-events: none;
+}
+@media(max-width:600px) {
+  .panel { min-width: 0; padding: 7px; font-size: 11px; }
+  #controls { font-size: 10px; }
+  .shipcard { min-width: 32px; padding: 4px; }
+  #fleet { gap: 2px; padding: 4px; }
+}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div class="panel">
+    <h3>Sininen laivasto</h3>
+    <div>Aluksia: <span id="blueCount">5</span></div>
+    <div>Pisteet: <span id="score">0</span></div>
+    <div class="bar"><div id="blueBar" style="width:100%"></div></div>
+  </div>
+  <div class="panel red">
+    <h3>Punainen laivasto</h3>
+    <div>Vihollisia: <span id="redCount">10</span></div>
+    <div>Tilanne: <span id="status">Taistelu</span></div>
+    <div class="bar"><div id="redBar" style="width:100%"></div></div>
+  </div>
+</div>
+
+<div id="message">Avaruustaistelu</div>
+<div id="hint">Paina ENTER aloittaaksesi</div>
+
+<div id="bottom">
+  <div id="controls">
+    <b style="color:#4eb7ff">NÄPPÄIMET</b><br>
+    WASD / nuolet – Liiku<br>
+    1–5 – Valitse alus<br>
+    E – Hyökkää lähimpään viholliseen<br>
+    Välilyönti – Hyökkää jatkuvasti<br>
+    Q – Vaihda valittua alusta<br>
+    P – Tauko<br>
+    ENTER – Aloita / uusi peli
+  </div>
+  <div id="fleet">
+    <div class="shipcard selected" id="card0"><b>1</b>★</div>
+    <div class="shipcard" id="card1"><b>2</b>◆</div>
+    <div class="shipcard" id="card2"><b>3</b>◆</div>
+    <div class="shipcard" id="card3"><b>4</b>◆</div>
+    <div class="shipcard" id="card4"><b>5</b>◆</div>
+  </div>
+</div>
+  <a href="valikko3.html">
+    <button style="position:absolute; top:496px; right:16px; padding:10px 14px; font-size:16px; cursor:pointer;">⬅️ Takaisin</button>
+
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let W, H;
+function resize() {
+  W = canvas.width = innerWidth * devicePixelRatio;
+  H = canvas.height = innerHeight * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  W = innerWidth; H = innerHeight;
+}
+addEventListener("resize", resize);
+resize();
+
+const keys = {};
+let mouseDown = false;
+let ships = [], enemies = [], shots = [], stars = [], particles = [];
+let selected = 0, score = 0, started = false, paused = false;
+let autoDodge = false;
+let hackSequence = "";
+let hackTimer = 0;
+let dodgeCooldown = 0;
+let dodgeX = 0;
+let dodgeY = 0;
+let over = false, last = 0, enemyTimer = 0, fireTimer = 0;
+let message = document.getElementById("message");
+let hint = document.getElementById("hint");
+
+function rand(a,b) { return a + Math.random()*(b-a); }
+function distance(a,b) { return Math.hypot(a.x-b.x,a.y-b.y); }
+function clamp(v,a,b) { return Math.max(a,Math.min(b,v)); }
+
+function makeShip(team, x, y, type=1) {
+  return {
+    team,x,y,type,
+    hp: type===1 ? 150 : type===2 ? 85 : 55,
+    max: type===1 ? 150 : type===2 ? 85 : 55,
+    speed: type===1 ? 150 : type===2 ? 190 : 220,
+    cooldown: rand(0,0.8),
+    angle: team===0 ? 0 : Math.PI,
+    dead:false
+  };
+}
+
+function reset() {
+  ships=[]; enemies=[]; shots=[]; particles=[];
+  score=0; selected=0; over=false; paused=false;
+  for(let i=0;i<5;i++) {
+    ships.push(makeShip(0, W*.17+rand(-25,25),
+      H*.30+i*35, i===0?1:i===1?2:3));
+  }
+  for(let i=0;i<10;i++) {
+    enemies.push(makeShip(1, W*.78+rand(-30,30),
+      H*.18+i*45, i<2?1:i<5?2:3));
+  }
+  started=true;
+  message.textContent="";
+  hint.textContent="";
+  updateHUD();
+}
+for(let i=0;i<220;i++)
+  stars.push({x:Math.random()*W,y:Math.random()*H,r:rand(.5,1.8),a:rand(.2,1)});
+function resetStars() {
+  stars=[];
+  for(let i=0;i<220;i++)
+    stars.push({x:Math.random()*W,y:Math.random()*H,r:rand(.5,1.8),a:rand(.2,1)});
+}
+resetStars();
+
+function aliveBlue() { return ships.filter(s=>!s.dead); }
+function aliveRed() { return enemies.filter(s=>!s.dead); }
+
+function choose(n) {
+  const live=aliveBlue();
+  if(n>=0 && n<ships.length && !ships[n].dead) selected=n;
+  else if(live.length) selected=ships.indexOf(live[0]);
+  for(let i=0;i<5;i++)
+    document.getElementById("card"+i).classList.toggle("selected",i===selected);
+}
+
+function nearestEnemy(s) {
+  let list=aliveRed();
+  if(!list.length) return null;
+  return list.reduce((a,b)=>distance(s,a)<distance(s,b)?a:b);
+}
+
+function fire(s,target) {
+  if(!target || s.dead || s.cooldown>0) return;
+  s.cooldown=s.type===1?.35:s.type===2?.55:.75;
+  let a=Math.atan2(target.y-s.y,target.x-s.x);
+  shots.push({
+    x:s.x+Math.cos(a)*18,y:s.y+Math.sin(a)*18,
+    vx:Math.cos(a)*440,vy:Math.sin(a)*440,
+    team:s.team,damage:s.type===1?19:s.type===2?13:9,
+    life:2
+  });
+  s.angle=a;
+}
+
+
+function smartAutoDodge(me, dt) {
+  if (!autoDodge || !me || me.dead) return;
+
+  const horizon = 0.85;
+  const dangerRadius = 42;
+  const margin = 32;
+  const candidates = [
+    [0, 0],
+    [1, 0], [-1, 0],
+    [0, 1], [0, -1],
+    [0.707, 0.707], [0.707, -0.707],
+    [-0.707, 0.707], [-0.707, -0.707]
+  ];
+
+  let bestX = 0;
+  let bestY = 0;
+  let bestScore = -Infinity;
+
+  for (const [dx, dy] of candidates) {
+    let score = 0;
+
+    // Palkitse liikkumistila ja rankaise reunoja
+    const tx = me.x + dx * me.speed * horizon;
+    const ty = me.y + dy * me.speed * horizon;
+
+    if (tx < margin || tx > W - margin) score -= 180;
+    if (ty < 85 + margin || ty > H - 100 - margin) score -= 180;
+
+    // Tutki kaikkien vihollisammusten ennustettuja lentoratoja
+    for (const b of shots) {
+      if (b.team !== 1) continue;
+
+      const rx = b.x - me.x;
+      const ry = b.y - me.y;
+
+      // Ammuksen sijainti suhteessa alukseen,
+      // jos alus liikkuisi valittuun suuntaan
+      const vx = b.vx - dx * me.speed;
+      const vy = b.vy - dy * me.speed;
+      const vv = vx * vx + vy * vy;
+
+      if (vv < 0.001) continue;
+
+      const t = clamp(-(rx * vx + ry * vy) / vv, 0, horizon);
+      const cx = rx + vx * t;
+      const cy = ry + vy * t;
+      const miss = Math.hypot(cx, cy);
+
+      if (miss < dangerRadius) {
+        score -= (dangerRadius - miss) * 12;
+      } else {
+        // Pieni palkkio, jos suunta vie kauemmas vaarasta
+        score += Math.min(miss, 120) * 0.015;
+      }
+    }
+
+    // Suosi jatkuvaa, pehmeää liikettä
+    score -= Math.hypot(dx, dy) * 2;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestX = dx;
+      bestY = dy;
+    }
+  }
+
+  // Siirrä alusta turvallisempaan suuntaan
+  me.x = clamp(
+    me.x + bestX * me.speed * 1.25 * dt,
+    25,
+    W - 25
+  );
+
+  me.y = clamp(
+    me.y + bestY * me.speed * 1.25 * dt,
+    85,
+    H - 100
+  );
+}
+
+
+function burst(x,y,color) {
+  for(let i=0;i<18;i++) {
+    let a=rand(0,Math.PI*2), sp=rand(35,180);
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,
+      life:rand(.25,.8),max:.8,color});
+  }
+}
+
+function damageShip(s, amount) {
+  s.hp-=amount;
+  if(s.hp<=0 && !s.dead) {
+    s.dead=true;
+    burst(s.x,s.y,s.team===0?"#32baff":"#ff405b");
+    if(s.team===1) score+=100;
+  }
+}
+
+function update(dt) {
+  if(!started || paused || over) return;
+
+  const me=ships[selected];
+// ÄLYKÄS HACK-AUTOVÄISTÖ
+if (autoDodge && me && !me.dead) {
+  const horizon = 0.55; // Ennakoi 0,55 sekuntia
+  const dangerRadius = 34;
+  let dodgeX = 0;
+  let dodgeY = 0;
+  let dangerScore = 0;
+
+  for (const b of shots) {
+    if (b.team !== 1) continue;
+
+    // Ammuksen sijainti suhteessa omaan alukseen
+    const rx = b.x - me.x;
+    const ry = b.y - me.y;
+    const speed2 = b.vx * b.vx + b.vy * b.vy;
+
+    if (speed2 < 1) continue;
+
+    // Milloin ammus on lähimpänä alusta?
+    const t = clamp(
+      -(rx * b.vx + ry * b.vy) / speed2,
+      0,
+      horizon
+    );
+
+    const cx = rx + b.vx * t;
+    const cy = ry + b.vy * t;
+    const missDistance = Math.hypot(cx, cy);
+
+    // Reagoi vain uhkaaviin ammuksiin
+    if (missDistance < dangerRadius && t > 0.015) {
+      const urgency =
+        (dangerRadius - missDistance) *
+        (1 - t / horizon);
+
+      // Väistä kohtisuoraan ammuksen lentorataan nähden
+      const len = Math.sqrt(speed2);
+      const nx = -b.vy / len;
+      const ny = b.vx / len;
+
+      // Valitse sivu, jolla on enemmän tilaa
+      const plusRoom = Math.min(
+        me.x + nx * 70,
+        W - (me.x + nx * 70),
+        me.y + ny * 70 - 85,
+        H - 100 - (me.y + ny * 70)
+      );
+
+      const minusRoom = Math.min(
+        me.x - nx * 70,
+        W - (me.x - nx * 70),
+        me.y - ny * 70 - 85,
+        H - 100 - (me.y - ny * 70)
+      );
+
+      const side = plusRoom >= minusRoom ? 1 : -1;
+
+      dodgeX += nx * side * urgency;
+      dodgeY += ny * side * urgency;
+      dangerScore += urgency;
+    }
+  }
+
+  // Pehmeä väistöliike
+  const strength = Math.min(1, dangerScore / 22);
+  const len = Math.hypot(dodgeX, dodgeY);
+
+  if (len > 0 && strength > 0) {
+    me.x += dodgeX / len * me.speed * 1.25 * strength * dt;
+    me.y += dodgeY / len * me.speed * 1.25 * strength * dt;
+
+    me.x = clamp(me.x, 25, W - 25);
+    me.y = clamp(me.y, 85, H - 100);
+  }
+}
+  if(me && !me.dead) {
+    let dx=0,dy=0;
+    if(keys.KeyW||keys.ArrowUp) dy--;
+    if(keys.KeyS||keys.ArrowDown) dy++;
+    if(keys.KeyA||keys.ArrowLeft) dx--;
+    if(keys.KeyD||keys.ArrowRight) dx++;
+    if(dx||dy) {
+      let len=Math.hypot(dx,dy);
+      me.x+=dx/len*me.speed*dt;
+      me.y+=dy/len*me.speed*dt;
+      me.angle=Math.atan2(dy,dx);
+    }
+    me.x=clamp(me.x,25,W-25);
+    me.y=clamp(me.y,85,H-100);
+	smartAutoDodge(me, dt);
+  }
+
+  for(const s of ships) {
+    if(s.dead) continue;
+    s.cooldown-=dt;
+    let target=nearestEnemy(s);
+    if(s!==me && target) {
+      let d=distance(s,target);
+      if(d>210) {
+        let a=Math.atan2(target.y-s.y,target.x-s.x);
+        s.x+=Math.cos(a)*s.speed*.48*dt;
+        s.y+=Math.sin(a)*s.speed*.48*dt;
+      }
+      if(d<510) fire(s,target);
+} else if (s === me && (keys.Space || mouseDown)) {
+  if (target) fire(s, target);
+}
+  }
+
+  enemyTimer-=dt;
+  for(const e of enemies) {
+    if(e.dead) continue;
+    e.cooldown-=dt;
+    const friends=aliveBlue();
+    if(!friends.length) continue;
+    const target=friends.reduce((a,b)=>distance(e,a)<distance(e,b)?a:b);
+    const d=distance(e,target);
+    if(d>245) {
+      const a=Math.atan2(target.y-e.y,target.x-e.x);
+      e.x+=Math.cos(a)*e.speed*.38*dt;
+      e.y+=Math.sin(a)*e.speed*.38*dt;
+      e.angle=a;
+    } else if(d<470) fire(e,target);
+    e.x=clamp(e.x,25,W-25);
+    e.y=clamp(e.y,75,H-95);
+  }
+
+  for(const b of shots) {
+    b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+    const targets=b.team===0?aliveRed():aliveBlue();
+    for(const t of targets) {
+      if(distance(b,t)<17) {
+        damageShip(t,b.damage);
+        b.life=0;
+        burst(b.x,b.y,b.team===0?"#35c8ff":"#ff5668");
+        break;
+      }
+    }
+  }
+  shots=shots.filter(b=>b.life>0&&b.x>-20&&b.x<W+20&&b.y>-20&&b.y<H+20);
+
+  for(const p of particles) {
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.life-=dt; p.vx*=.98; p.vy*=.98;
+  }
+  particles=particles.filter(p=>p.life>0);
+
+  if(!aliveRed().length) {
+    over=true; message.textContent="VOITTO!";
+    hint.textContent="Vihollislaivasto kukistettu! ENTER = uusi peli";
+  } else if(!aliveBlue().length) {
+    over=true; message.textContent="LAIVASTO TUHOUTUI";
+    hint.textContent="ENTER = yritä uudelleen";
+  }
+  updateHUD();
+}
+
+function drawShip(s) {
+  if(s.dead) return;
+  ctx.save();
+  ctx.translate(s.x,s.y);
+  ctx.rotate(s.angle);
+  const blue=s.team===0;
+  const c=blue?"#38bfff":"#ff4e63";
+  ctx.shadowBlur=13; ctx.shadowColor=c;
+  ctx.fillStyle=c;
+  ctx.beginPath();
+  ctx.moveTo(19,0); ctx.lineTo(-10,-10);
+  ctx.lineTo(-6,0); ctx.lineTo(-10,10);
+  ctx.closePath(); ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.fillStyle=blue?"#d6f2ff":"#ffe1e5";
+  ctx.fillRect(-8,-4,13,8);
+  ctx.fillStyle=blue?"#167bda":"#a82038";
+  ctx.fillRect(-13,-11,7,4); ctx.fillRect(-13,7,7,4);
+  ctx.restore();
+
+  const w=s.type===1?34:25;
+  ctx.fillStyle="#1a2940";
+  ctx.fillRect(s.x-w/2,s.y-20,w,4);
+  ctx.fillStyle=blue?"#12f1a0":"#ff4359";
+  ctx.fillRect(s.x-w/2,s.y-20,w*Math.max(0,s.hp/s.max),4);
+
+  if(blue && ships[selected]===s) {
+    ctx.strokeStyle="#7cf5ff";
+    ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(s.x,s.y,27,0,Math.PI*2); ctx.stroke();
+  }
+}
+
+function draw() {
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle="#030817"; ctx.fillRect(0,0,W,H);
+
+  for(const st of stars) {
+    ctx.globalAlpha=st.a;
+    ctx.fillStyle="#c7e8ff";
+    ctx.fillRect(st.x,st.y,st.r,st.r);
+  }
+  ctx.globalAlpha=1;
+
+  // Kaukaiset planeetat
+  ctx.fillStyle="#102b62";
+  ctx.beginPath(); ctx.arc(W*.52,H*.47,Math.min(W,H)*.12,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle="#1c5794"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(W*.52,H*.47,Math.min(W,H)*.12,0,Math.PI*2); ctx.stroke();
+
+  // Tähtisumu
+  const grd=ctx.createRadialGradient(W*.5,H*.5,10,W*.5,H*.5,W*.45);
+  grd.addColorStop(0,"#10264b55");
+  grd.addColorStop(1,"#03081700");
+  ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+
+  for(const b of shots) {
+    ctx.strokeStyle=b.team===0?"#27c8ff":"#ff405b";
+    ctx.lineWidth=3; ctx.shadowBlur=10; ctx.shadowColor=ctx.strokeStyle;
+    ctx.beginPath(); ctx.moveTo(b.x,b.y);
+    ctx.lineTo(b.x-b.vx*.035,b.y-b.vy*.035); ctx.stroke();
+  }
+  ctx.shadowBlur=0;
+  for(const s of ships) drawShip(s);
+  for(const s of enemies) drawShip(s);
+
+  for(const p of particles) {
+    ctx.globalAlpha=Math.max(0,p.life/p.max);
+    ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // Tutka
+  const mx=W-125,my=H-125,mw=108,mh=108;
+  ctx.fillStyle="#031225dd"; ctx.fillRect(mx,my,mw,mh);
+  ctx.strokeStyle="#168dff"; ctx.strokeRect(mx,my,mw,mh);
+  for(const s of ships.concat(enemies)) {
+    if(s.dead) continue;
+    ctx.fillStyle=s.team===0?"#39c7ff":"#ff405b";
+    ctx.fillRect(mx+s.x/W*mw-2,my+s.y/H*mh-2,4,4);
+  }
+}
+
+function updateHUD() {
+  document.getElementById("blueCount").textContent=aliveBlue().length;
+  document.getElementById("redCount").textContent=aliveRed().length;
+  document.getElementById("score").textContent=score;
+  let b=ships.reduce((a,s)=>a+(s.dead?0:s.hp),0);
+  let bm=ships.reduce((a,s)=>a+s.max,0);
+  let r=enemies.reduce((a,s)=>a+(s.dead?0:s.hp),0);
+  let rm=enemies.reduce((a,s)=>a+s.max,0);
+  document.getElementById("blueBar").style.width=(b/bm*100)+"%";
+  document.getElementById("redBar").style.width=(r/rm*100)+"%";
+  document.getElementById("status").textContent=paused?"Tauko":over?"Päättynyt":"Taistelu";
+  for(let i=0;i<5;i++) {
+    const card=document.getElementById("card"+i);
+    card.style.opacity=ships[i]&&!ships[i].dead?1:.3;
+    card.classList.toggle("selected",i===selected);
+  }
+}
+
+addEventListener("keydown",e=>{
+  const k=e.code;
+  if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(k))
+    e.preventDefault();
+  keys[k]=true;
+  // Salainen HACK-huijaus
+if (["KeyH", "KeyA", "KeyC", "KeyK"].includes(k)) {
+  hackSequence += k.replace("Key", "");
+  hackSequence = hackSequence.slice(-4);
+
+
+if (hackSequence === "HACK") {
+  autoDodge = !autoDodge;
+  hackSequence = "";
+
+  message.textContent = autoDodge
+    ? "⚡ PRO AUTODODGE AKTIVOITU!"
+    : "PRO AUTODODGE POIS PÄÄLTÄ";
+
+  hint.textContent = autoDodge
+    ? "Älykäs väistö käytössä!"
+    : "Paina H A C K aktivoidaksesi";
+
+  setTimeout(() => {
+    if (started && !paused && !over) {
+      message.textContent = "";
+      hint.textContent = "";
+    }
+  }, 2000);
+}
+}
+  if(e.repeat) return;
+
+  if(k==="Enter") {
+    if(!started||over) reset();
+    else if(paused) paused=false;
+    return;
+  }
+  if(k==="KeyP" && started && !over) {
+    paused=!paused;
+    message.textContent=paused?"TAUKO":"";
+    hint.textContent=paused?"Paina P tai ENTER jatkaaksesi":"";
+  }
+  if(k==="Digit1") choose(0);
+  if(k==="Digit2") choose(1);
+  if(k==="Digit3") choose(2);
+  if(k==="Digit4") choose(3);
+  if(k==="Digit5") choose(4);
+  if(k==="KeyQ") {
+    let live=aliveBlue();
+    if(live.length) {
+      let pos=live.indexOf(ships[selected]);
+      choose(ships.indexOf(live[(pos+1)%live.length]));
+    }
+  }
+  if(k==="KeyE" && started && !paused) {
+    const s=ships[selected];
+    if(s&&!s.dead) fire(s,nearestEnemy(s));
+  }
+});
+addEventListener("keyup",e=>keys[e.code]=false);
+// Hiiren vasen painike ampuu jatkuvasti pohjassa pidettäessä
+canvas.addEventListener("mousedown", e => {
+  if (e.button === 0) {
+    mouseDown = true;
+    e.preventDefault();
+  }
+});
+
+window.addEventListener("mouseup", e => {
+  if (e.button === 0) mouseDown = false;
+});
+
+// Lopeta ampuminen, jos ikkuna menettää fokuksen
+window.addEventListener("blur", () => {
+  mouseDown = false;
+});
+
+// Estä hiiren oikean painikkeen valikko pelialueella
+canvas.addEventListener("contextmenu", e => e.preventDefault());
+addEventListener("blur",()=>{for(const k in keys) keys[k]=false;});
+
+function loop(t) {
+  const dt=Math.min((t-last)/1000||0,.04);
+  last=t;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

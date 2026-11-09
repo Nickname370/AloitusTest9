@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kosminen etäisyysmuunnin</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .converter-container {
+            background-color: #1e293b;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 550px;
+            text-align: center;
+        }
+        h2 {
+            color: #38bdf8;
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 25px;
+        }
+        .input-group {
+            margin-bottom: 18px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        /* TÄMÄ KORJAA ULKOASUN: Puree number-tyyppisiin kenttiin */
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            padding-right: 50px; /* Jätetään tilaa yksikkölapulle (XM, KM...) */
+            background-color: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 6px;
+            font-size: 16px;
+            color: #ffffff;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.3s;
+            -webkit-appearance: none; /* Poistaa selaimen oletusmuotoilut */
+            -moz-appearance: textfield;
+        }
+        /* Poistaa numerokenttien ylös/alas-nuolet (spinnerit) siisteyden vuoksi */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"]:focus {
+            border-color: #38bdf8;
+        }
+        .unit-badge {
+            position: absolute;
+            right: 12px;
+            font-weight: bold;
+            color: #38bdf8;
+            pointer-events: none;
+        }
+        .divider {
+            margin: 20px 0;
+            border: 0;
+            border-top: 1px solid #334155;
+        }
+        .ratio-info {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 20px;
+            text-align: left;
+            line-height: 1.5;
+        }
+
+    </style>
+</head>
+<body>
+<a href="valikko3.html">
+    <button style="position:absolute; top:10px; right:10px; padding:10px 14px; font-size:16px; cursor:pointer;">⬅️ Takaisin</button>
+</a>
+
+<div class="converter-container">
+    <h2>Kosminen etäisyysmuunnin</h2>
+    <div class="subtitle">Muuta arvoja reaaliajassa</div>
+    
+    <div class="input-group">
+        <label for="xmInput">Xenometrit</label>
+        <div class="input-wrapper">
+            <input type="number" id="xmInput" step="any" placeholder="Syötä arvo" oninput="handleInput('xm')">
+            <span class="unit-badge">XM</span>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="input-group">
+        <label for="kmInput">Kilometrit</label>
+        <div class="input-wrapper">
+            <input type="number" id="kmInput" step="any" placeholder="Syötä arvo" oninput="handleInput('km')">
+            <span class="unit-badge">KM</span>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label for="mInput">Metrit</label>
+        <div class="input-wrapper">
+            <input type="number" id="mInput" step="any" placeholder="Syötä arvo" oninput="handleInput('m')">
+            <span class="unit-badge">M</span>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="input-group">
+        <label for="auInput">Astronomiset yksiköt</label>
+        <div class="input-wrapper">
+            <input type="number" id="auInput" step="any" placeholder="Syötä arvo" oninput="handleInput('au')">
+            <span class="unit-badge">AU</span>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label for="lyInput">Valovuodet</label>
+        <div class="input-wrapper">
+            <input type="number" id="lyInput" step="any" placeholder="Syötä arvo" oninput="handleInput('ly')">
+            <span class="unit-badge">LY</span>
+        </div>
+    </div>
+
+    <div class="ratio-info">
+        <strong>Vakiot & muuntosuhteet:</strong><br>
+        • 1 XM = 20 KM<br>
+        • 1 AU = 149 597 870,7 KM<br>
+        • 1 LY = 9 460 730 472 580,8 KM (eli 9 460 730 472 580 800 metriä)
+    </div>
+</div>
+
+<script>
+    // Määritellään kertoimet suhteessa metriin (1 metri = perusyksikkö)
+    // Käytetään suuria kokonaislukuja kertoimina, jotta desimaalivirheet vältetään
+    const UNITS = {
+        xm: 20000,
+        km: 1000,
+        m: 1,
+        au: 149597870700,
+        ly: 9460730472580800
+    };
+
+    const inputs = {
+        xm: document.getElementById('xmInput'),
+        km: document.getElementById('kmInput'),
+        m: document.getElementById('mInput'),
+        au: document.getElementById('auInput'),
+        ly: document.getElementById('lyInput')
+    };
+
+    // Funktio, joka muuttaa luvun siistiksi tekstiksi ilman tieteellistä e-merkintää
+    function formatValue(num) {
+        if (num === 0) return "0";
+
+        // Muutetaan luku tekstiksi. Jos selain tarjoaa e-merkintää, puretaan se auki
+        let str = num.toString();
+        if (str.includes('e')) {
+            str = num.toFixed(20).replace(/\.?0+$/, ""); // Pakotetaan kiinteäksi desimaaliksi ja siivotaan loppunollat
+        }
+
+        // Lasketaan numeroiden kokonaismäärä (jätetään miinus ja desimaalipiste laskematta)
+        const digitsOnly = str.replace(/[-.]/g, '');
+        
+        // Jos numeroita on yli 50, käytetään eksponenttimuotoa
+        if (digitsOnly.length > 50) {
+            return num.toExponential(4);
+        }
+
+        return str;
+    }
+
+        function handleInput(sourceUnit) {
+        let inputField = inputs[sourceUnit];
+        
+        // Sallitaan vain numerot, piste, pilkku, miinusmerkki ja tieteellisen merkinnän 'e' / 'E'
+        // Pyyhitään kaikki kirjaimet ja muut erikoismerkit heti pois
+        let cleanValue = inputField.value.replace(/[^0-9.,eE-]/g, '');
+        
+        // Korvataan suomalainen desimaalipilkku pisteeksi laskentaa varten
+        let rawValue = cleanValue.replace(',', '.');
+
+        // Päivitetään kentän sisältö siistityllä tekstillä
+        if (inputField.value !== cleanValue) {
+            inputField.value = cleanValue;
+        }
+
+        if (rawValue.trim() === "") {
+            for (let unit in inputs) {
+                if (unit !== sourceUnit) inputs[unit].value = "";
+            }
+            return;
+        }
+
+        let numValue = Number(rawValue);
+        if (isNaN(numValue)) return;
+
+        // Vaihe 1: Muunnetaan syötetty arvo perusyksiköksi eli METREIKSI
+        let meters = numValue * UNITS[sourceUnit];
+
+        // Vaihe 2: Lasketaan metreistä arvot muihin kenttiin
+        for (let unit in inputs) {
+            if (unit !== sourceUnit) {
+                let calculatedValue = meters / UNITS[unit];
+                inputs[unit].value = formatValue(calculatedValue);
+            }
+        }
+    }
+
+    // Asetetaan alkutilanne (2000 XM) sivun latautuessa
+    window.onload = function() {
+        inputs.xm.value = "2000";
+        handleInput('xm');
+    };
+</script>
+
+</body>
+</html>
